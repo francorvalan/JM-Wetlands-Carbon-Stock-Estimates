@@ -1,0 +1,51 @@
+<mxfile host="65bd71144e">
+    <diagram id="WdKN3Ol2Wm4grgKtT1LK" name="Page-1">
+        <mxGraphModel dx="875" dy="667" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="#ffffff" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="16" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontColor=#000000;strokeColor=#000000;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="22" target="15">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="340" y="105" as="sourcePoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="14" value="NDVI p95&lt;br&gt;SAVI Promedio anual" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#000000;fillColor=none;strokeColor=#1b1818;" vertex="1" parent="1">
+                    <mxGeometry x="275" y="210" width="125" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="17" style="edgeStyle=none;html=1;strokeColor=#000000;fontColor=#000000;" edge="1" parent="1" source="15" target="14">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" value="Máscara de &lt;br&gt;Nubes y Sombras" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;labelBackgroundColor=none;strokeColor=#171B26;strokeWidth=1;fillColor=none;rounded=0;fontColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="272.5" y="130" width="130" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" style="edgeStyle=none;html=1;strokeColor=#000000;fontColor=#000000;" edge="1" parent="1" source="18" target="19">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="18" value="DEM" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;strokeColor=#1b1818;fontColor=#000000;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="140" y="57.5" width="55" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="19" value="Índices Morfométricos" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;strokeColor=#1b1818;fontColor=#000000;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="115" y="130" width="105" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" value="Sentinel- 2&lt;br&gt;GEE&amp;nbsp;" style="shape=datastore;whiteSpace=wrap;html=1;rounded=0;shadow=0;labelBackgroundColor=none;sketch=0;strokeColor=#1b1818;fontColor=#000000;fillColor=#CFEAFF;fillStyle=solid;gradientColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="292.5" y="50" width="90" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#000000;fontColor=#000000;" edge="1" parent="1" source="23" target="24">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="Ps Images" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;strokeColor=#1b1818;fontColor=#000000;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="450" y="65" width="55" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="Índices de Vegetación" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;strokeColor=#1b1818;fontColor=#000000;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="425" y="130" width="105" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="26" value="Variables Bioclimáticas" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;strokeColor=#1b1818;fontColor=#000000;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="550" y="65" width="90" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="29" value="Sentinel- 2&lt;br&gt;GEE&amp;nbsp;" style="shape=datastore;whiteSpace=wrap;html=1;rounded=0;shadow=0;labelBackgroundColor=none;sketch=0;strokeColor=#1b1818;fontColor=#000000;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="650" y="57.5" width="90" height="60" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

@@ -1,0 +1,1799 @@
+---
+title: "Analisis de datos hidrologicos Josemaria"
+author: "F. Corvalan"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+    pdf_document:
+        includes:
+             in_header: header.tex
+---
+
+```{r setup, include=FALSE}
+library(RODBC)
+library(sf)
+library(tmap)
+library(paletteer)
+library(summarytools)
+library(tidyr)
+library(dplyr)
+library(tmaptools)
+library(kableExtra)
+library(ggplot2)
+library(terra)
+library(OpenStreetMap)
+library(RColorBrewer)
+library(reactablefmtr)
+library(tidyverse)
+library(formattable)
+library(gapminder)
+tmap_mode("plot")
+library(xlsx)
+options(OutDec= ",") 
+decimales=10
+```
+
+```{r include=FALSE, message=F,warning=FALSE,echo=F }
+#getwd()
+# setwd("./")
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+
+Cuencas <- st_read("./02_Data/Cuencas_sub_microcuencas_REVB.shp")%>% st_make_valid()
+names(Cuencas)[[8]] <- "Microcuenca"
+
+Cuencas <- Cuencas %>% 
+  mutate(Subcuenca=gsub("Río|R.","río",Subcuenca))
+
+Fecha_comparativa <- as.Date("2023-10-01","%Y-%m-%d")
+
+Ausenco_colores_oscuros <-c("#101820","#004764",
+                            "#0095C8","#C3D62F",
+                            "#6F0778","#F3D03E")
+limites_tabla_knit<- xlsx::read.xlsx2("./02_Data/Niveles guia DP1426-LN24585.xlsx",1)
+
+limites<- xlsx::read.xlsx2("./02_Data/Niveles guia DP1426-LN24585.xlsx",2)
+
+limites<- limites %>%
+  mutate(across(limites %>% select(!c("Constituyente","Unidad")) %>% names(), as.numeric))
+
+Estaciones_utilizadas_IIA <- xlsx::read.xlsx2("./02_Data/Monitoreo agua 1AIIA.xlsx",2)
+Estaciones_a_utilizar <- c(Estaciones_utilizadas_IIA$Punto,
+                                gsub(" ","_",
+                                     Estaciones_utilizadas_IIA$Punto))
+
+
+## Set up driver info and database path
+DRIVERINFO <- "Driver={Microsoft Access Driver (*.mdb, *.accdb)};"
+MDBPATH <- paste0("./02_Data/BD_Aguas_20240528.accdb")
+PATH <- paste0(DRIVERINFO, "DBQ=", MDBPATH)
+
+# Establecer la connección
+
+conection<- odbcConnectAccess2007(PATH)
+Tables <- sqlTables(conection, tableType = "TABLE")
+```
+
+```{r include=FALSE, echo=F,warning=F, message=F}
+# Creacion de directorios de salida
+Analisis_folder=c("01_Analisis_caudal","02_Analisis_Hidroquimico")
+Sub_folders=c("01_Superficial","02_Subsuperficial")
+Subsub_folders=c("A_Tables","B_Plots")
+
+lapply(apply(expand.grid("./03_Results/",Analisis_folder,"/",Sub_folders,"/",Subsub_folders), 1,paste, collapse=""),dir.create,recursive=T)
+```
+
+Estructura de las salidas de los resultados:
+
+```{r include=FALSE, message=F,warning=FALSE, eval=T}
+
+
+
+twee <- function(path = getwd(), level = Inf,type="Folders",
+                 depth=3) {
+  
+  # list.dirs.depth.n <- function(path, n,no_ = TRUE, include_dirs = TRUE) {
+  #       res <- list.dirs(path, recursive = FALSE,
+  #                        no..=no_, include.dirs = include_dirs)
+  #       if (n > 1) {
+  #         add <- list.dirs.depth.n(res, n-1,no..=no_, include.dirs = include_dirs)
+  #         c(res, add)
+  #       } else {
+  #         res
+  #       }
+  # }
+  # 
+  
+  ifelse(type=="Files",{
+  fad <-
+    list.files(path = path, recursive = TRUE,no.. = TRUE, include.dirs = TRUE)
+  },  fad <-
+    list.files(path = path, recursive = TRUE,no.. = F,include.dirs=T))
+  
+  list.dirs.depth.n <- function(p, depth) {
+              res <- list.dirs(p, recursive = FALSE)
+              if (depth > 1) {
+                add <- list.dirs.depth.n(res, depth-1)
+                c(res, add)
+              } else {
+                res
+              }
+            }
+
+
+
+  fad <- list.dirs.depth.n(path, depth = depth)
+
+  fad_split_up <- strsplit(fad, "/")
+
+  too_deep <- lapply(fad_split_up, length) > level
+  fad_split_up[too_deep] <- NULL
+  depth=3
+  jfun <- function(x) {
+    
+    n <- length(x)
+    #if(all(depth!=Inf,n>depth))(n <- depth)
+    if(n > 1)
+      x[n - 1] <- "|__"
+    if(n > 2)
+      x[1:(n - 2)] <- "   "
+    x <- if(n == 1) c("-- ", x) else c("   ", x)
+    x
+  }
+  fad_subbed_out <- lapply(fad_split_up, jfun)
+  
+  cat(unlist(lapply(fad_subbed_out, paste, collapse = "")), sep = "\n")
+}
+
+# Quitar el último ";" y reemplazarlo por "y"
+reemplazar_ultimo_punto_y_coma <- function(cadena) {
+  require(stringr)
+  # Dividir la cadena en una lista de valores separados por ";"
+  partes <- str_split(cadena, ";")[[1]]
+  resultado <- cadena
+  if(length(partes)>1)({
+  # Remover cualquier elemento vacío al final (si es que hay uno)
+  partes <- partes[partes != ""]
+  # Concatenar todos los elementos excepto el último con ";"
+  resultado <- paste(partes[-length(partes)], collapse = ";")
+  # Agregar "y" seguido del último elemento
+  resultado <- str_c(resultado, " y", partes[length(partes)])})
+  return(resultado)
+}
+
+```
+
+```{r eval=F, echo=F}
+
+allfiles <- list.files("./03_Results/", 
+                       full.names = F, recursive = TRUE)
+
+list.dirs.depth.n("./03_Results/", n = 3)
+`r print(twee("./03_Results/",type="Folders",depth=3))`
+```
+
+
+
+# 1 Analisis de Datos Superficiales
+
+Datos tabulares disponibles:
+
+`r grep("SUP",Tables$TABLE_NAME,value = T)`
+
+Estaciones consideradas para el análisis de datos:
+
+`r Estaciones_utilizadas_IIA$Punto %>% unique()`
+
+```{r include=FALSE}
+#Hdroqca_SUP <- sqlFetch(conection, "1_AG_SUP_Hidroquimica")
+SUP_Ubicacion <- sqlFetch(conection, "1_AG_SUP_Estaciones_Ubicacion")
+#Hdroqca_SUP <-  merge(Hdroqca_SUP,SUP_Ubicacion,by.x="ID_Estacion",by.y="Nombre")
+
+```
+
+```{r include=FALSE,echo=F,warning=F, message=F}
+
+SUP_sf <- st_as_sf(SUP_Ubicacion %>%
+                     filter(complete.cases(Norte_UTMWGS84)),coords=c("Este_UTMWGS84","Norte_UTMWGS84"),
+                          crs=32719)%>%
+  #filter(Nombre%in%Estaciones_a_utilizar)
+  filter(Id<190)
+
+
+SUP_sf$Estacion <- SUP_sf$Nombre
+SUP_sf <- SUP_sf%>%
+   # Agrego elimino las clasificaciones de cuencas
+  select(names(SUP_sf)[!c(names(SUP_sf)%in%names(Cuencas))])
+
+# Incoorporo la clasificacion de cuencas acorde a su ubicacion y
+# las deliminaciones de "Cuencas" de JM II
+SUP_sf <- st_intersection(SUP_sf,
+                   Cuencas %>% st_transform(st_crs(SUP_sf)) %>% st_make_valid())
+
+SUP_Ubicacion <- SUP_sf %>% as.data.frame()
+
+names(SUP_sf) <- iconv(names(SUP_sf), to = "UTF-8")
+SUP_sf%>%  st_write("03_Results/03_Shapes/Estaciones_Superficiales.shp",append=FALSE)
+
+```
+
+```{r echo=F}
+# oms<- read_osm(st_bbox(SUP_sf)*c(1.015,1,.985,1),ext=1.3)
+# stars::write_stars(oms,"C:/Users/francisco.corvalan/Water_data_process/OSM_Superficial.tif")
+```
+
+```{r echo=F,warning=F, message=F}
+osm_sup <- stars::read_stars("C:/Users/francisco.corvalan/Water_data_process/OSM_Superficial.tif")
+#osm_sup <- project(osm_sup,"EPSG:4326")
+
+SUP_sf <- SUP_sf %>% st_transform("EPSG:4326")
+
+tm_shape(osm_sup,projection=4326,is.master = T)+ tm_rgb(alpha =1)+
+  tm_shape(Cuencas)+tm_fill(col="Subcuenca",alpha = 0.6)+
+  tm_shape(Cuencas)+tm_borders(col="gray53")+
+
+  tm_shape(SUP_sf,bbox = st_bbox(SUP_sf))+
+  tm_dots(size = 0.2)+
+
+  #tm_shape((Provincias))+tm_polygons(alpha =0,lwd=0.4,border.col="black")+
+  #tm_shape((Provincia_de_Corriente))+ tm_polygons(alpha =0.6,lwd=1.3,border.col="black",col="salmon")+
+
+  tm_graticules(lwd = 0.5,alpha   = 0.2) +
+  tm_compass(position = c("right", "top")) +
+  tm_scale_bar(position=c("center", "bottom"))+
+  tm_credits("F.Corvalan, 2024",size = 0.4,position=c("LEFT","BOTTOM"),
+             bg.color = "white",bg.alpha = 0.8)+
+  tm_layout(legend.position = c("RIGHT","BOTTOM"),legend.bg.color = "white",
+            legend.bg.alpha = 1,legend.frame = "gray50",
+            main.title = "Sitios de monitoreo hidrologico superficial",
+            main.title.size=.8,
+            main.title.position=c("center"),scale = 1)
+
+```
+
+## 1.1 Hidrología superficial – Aforos
+
+Datos tabulares disponibles:
+
+```{r echo=F,warning=F, message=F}
+tablas_caudal<- grep("Caudal|Nivel",grep("SUP",Tables$TABLE_NAME,value = T),value=T)
+tablas_caudal<- grep("Resumen",tablas_caudal,invert = T,value = T)
+print(tablas_caudal)
+```
+
+```{r summary_process, include=F,echo=F,warning=F, message=F}
+summary_process <- function(df,parameter,date,groups,
+                            Cca=T,Subcca=T,Microcca=T,digits=decimales){
+  df %>% group_by(!!ensym(groups))
+  Resumen_Caudales_SUP <- df %>%
+    group_by(!!ensym(groups)) %>%
+    filter(complete.cases(!!ensym(parameter))) %>%
+    summarise(
+              Cca. = if (Cca) unique(Cuenca) else NA,
+              Subcca. = if (Subcca) unique(Subcuenca) else NA,
+              Microcca. = if (Microcca) unique(Microcuenca) else NA,
+              Inicio=format.Date(min(!!ensym(date)),"%m-%Y"),
+              Final=format.Date(max(!!ensym(date)),"%m-%Y"),
+              'N° Reg'= n(),
+              max=max(!!ensym(parameter),na.rm = T),
+              q95=quantile(!!ensym(parameter),.95,na.rm = T),
+              q75=quantile(!!ensym(parameter),.75,na.rm = T),
+              Prom.=mean(!!ensym(parameter),na.rm = T),
+              Mediana=median(!!ensym(parameter),na.rm = T),
+              q25=quantile(!!ensym(parameter),.25,na.rm = T),
+              q05=quantile(!!ensym(parameter),.05,na.rm = T),
+              min=min(!!ensym(parameter),na.rm = T),
+              sd=sd(!!ensym(parameter),na.rm = T)
+    ) %>%
+    mutate(across(where(is.numeric), round, digits))  %>%
+    arrange(Cca.,Subcca.,Microcca.,Estacion)
+    names(Resumen_Caudales_SUP) <- iconv(names(Resumen_Caudales_SUP), to = "UTF-8")
+
+  return(Resumen_Caudales_SUP)
+
+  }
+```
+
+### 1.1.1 Analisis Tabla: `r tablas_caudal[[1]]`
+
+```{r echo=FALSE, warning=F}
+Caudales_SUP <- sqlFetch(conection, "1_AG_SUP_Caudales")
+Caudales_SUP <-  merge(Caudales_SUP,SUP_Ubicacion,by.x="ID_Estacion",by.y="Estacion")
+Caudales_SUP$Estacion <- NULL
+names(Caudales_SUP)[names(Caudales_SUP)=="ID_Estacion"] <- "Estacion"
+Caudales_SUP <- Caudales_SUP %>% filter(Estacion%in%Estaciones_a_utilizar)
+Stations_st <- SUP_sf %>% filter(SUP_sf$Estacion%in%Caudales_SUP$Estacion)
+Tabla <- tablas_caudal[[1]]
+
+```
+
+-   Cantidad de Estaciones analizadas: `r length(unique(Caudales_SUP$Estacion))`
+
+-   Cuencas analizadas: `r c(na.omit(unique(Caudales_SUP$Cuenca)))`
+
+-   Cuencas analizadas: `r c(na.omit(unique(Caudales_SUP$Subcuenca)))`
+
+Estaciones sin datos disponibles de caudal superficial:
+
+```{r echo=F,warning=F, message=F}
+
+Estaciones_utilizadas_IIA %>% filter(Componente=="AGUA SUPERFICIAL") %>% 
+  filter(Punto %in% (Caudales_SUP$Estacion)) %>% select(Punto) %>% unique() %>% pull()
+
+```
+
+*Estaciones:*
+
+```{r echo=F,warning=F, message=F}
+
+tm_shape(read_osm(st_bbox(Stations_st)*c(1.015,1,.985,1),ext=1.3))+
+  tm_rgb(alpha =1)+
+  tm_shape(Cuencas)+tm_fill(col="Subcuenca",alpha = 0.6)+
+  tm_shape(Cuencas)+tm_borders(col="gray53")+
+  tm_shape(Stations_st)+
+  tm_dots(col = "gray5",size = 0.1)+
+  #tm_shape((Provincias))+tm_polygons(alpha =0,lwd=0.4,border.col="black")+
+  #tm_shape((Provincia_de_Corriente))+ tm_polygons(alpha =0.6,lwd=1.3,border.col="black",col="salmon")+
+
+  tm_graticules(lwd = 0.5,alpha   = 0.2) +
+  tm_compass(position = c("right", "top")) +
+  tm_scale_bar(position=c("center", "bottom"))+
+  tm_credits("F.Corvalan, 2024",size = 0.4,position=c("LEFT","BOTTOM"),
+             bg.color = "white",bg.alpha = 0.8)+
+  tm_layout(legend.position = c("RIGHT","BOTTOM"),legend.bg.color = "white",
+            legend.bg.alpha = 1,legend.frame = "gray50",
+            main.title = paste0("Sitios de monitoreo hidrólogico superficial analizados","\n","Tabla: ",Tabla),
+            main.title.size=.8,
+            main.title.position=c("center"),scale = 1)
+
+```
+
+```{r echo=F}
+
+outoput_dir_tabular_caudal_total <- "./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/Resumen_Caudales_SUP_Totalidad_datos.xlsx"
+outoput_dir_tabular_caudal_periodo_previo <- "./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/Resumen_Caudales_SUP_Nivel_Periodo_Previo.xlsx"
+outoput_dir_tabular_caudal_periodo_posterior <- "./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/Resumen_Caudales_SUP_Periodo_Posterior.xlsx"
+
+
+```
+
+Salidas Tabulares:
+
+-    Análisis totalidad de datos: `r outoput_dir_tabular_caudal_total`
+-    Análisis periodo previo: `r outoput_dir_tabular_caudal_periodo_previo`
+-    Análisis periodo posterior: `r outoput_dir_tabular_caudal_periodo_previo`
+ 
+
+```{=tex}
+\newpage
+\blandscape
+```
+```{r echo=F,warning=F, message=F}
+
+Resumen_Caudales_SUP_Total <-summary_process(Caudales_SUP,parameter = "Caudal_l_s",
+                date = "Fecha_Muestra",
+                groups = "Estacion",Cca =T,
+                Subcca = T,Microcca = T)%>%
+               select(Cca., Subcca.,Microcca.,Estacion, everything()) %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .)))
+
+Resumen_Caudales_SUP_Periodo_Previo <-summary_process(
+  Caudales_SUP %>%filter(Fecha_Muestra<Fecha_comparativa),
+                parameter = "Caudal_l_s",
+                date = "Fecha_Muestra",
+                groups = "Estacion",Cca =T,
+                Subcca = T,Microcca = T)%>%
+               select(Cca., Subcca.,Microcca.,Estacion, everything()) %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .)))
+
+Resumen_Caudales_SUP_Periodo_Posterior <-summary_process(
+  Caudales_SUP %>%filter(Fecha_Muestra>=Fecha_comparativa),
+                parameter = "Caudal_l_s",
+                date = "Fecha_Muestra",
+                groups = "Estacion",
+                Cca =T,
+                Subcca = T,Microcca = T) %>%
+               select(Cca., Subcca.,Microcca.,Estacion, everything())%>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .)))
+
+
+directorio_tabla = "./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/"
+
+write.xlsx2(Resumen_Caudales_SUP_Total,outoput_dir_tabular_caudal_total)
+
+write.xlsx2(Resumen_Caudales_SUP_Periodo_Previo,outoput_dir_tabular_caudal_periodo_previo)
+
+write.xlsx2(Resumen_Caudales_SUP_Periodo_Posterior,outoput_dir_tabular_caudal_periodo_posterior)
+
+knitr::kable(Resumen_Caudales_SUP_Total,
+             digits = 2,caption  ="Resumen de los datos de: Caudales SUP",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%  # Ajusta el tamaño de la fuente
+  column_spec(1, width = "1cm") %>%  # Ancho de la primera columna
+  column_spec(c(2,3,4), width = "1.5cm")%>%
+  collapse_rows(columns = 1:4, valign = "middle")%>%
+  kableExtra::footnote(general = paste0("Directorio: ",directorio_tabla))
+
+```
+
+\elandscape
+
+*Figuras*
+
+```{r echo=F,warning=F, message=F}
+Caudales_SUP <- Caudales_SUP %>%
+  filter(complete.cases(Caudal_l_s)) %>%
+  arrange(Microcuenca) %>%
+  group_by(Estacion) %>%
+  mutate(n=n()) %>% ungroup()%>%
+  mutate(Periodo=if_else(Fecha_Muestra<Fecha_comparativa,
+                         "A: Periodos previos","B: Periodos actuales"),
+         Subcuenca=Subcuenca)
+
+```
+
+-   Se consideró como periodo previo aquellas fechas anteriores a `r Fecha_comparativa`
+-   Se utilizaron aquellas estaciones que presentan mas de 10 datos.
+
+```{r echo=F,warning=F, message=F}
+output_dir <- "./03_Results/01_Analisis_caudal/01_Superficial/B_Plots/Caudales_boxplots_pareados/"
+if(!dir.exists(output_dir)) dir.create(output_dir,recursive = T)
+Y_label = 20
+stat_box_data <- function(y) {
+  return( 
+    data.frame(
+      #y = 0.5+1.2 *max(y),  # may need to modify this depending on your data
+      y=Y_label,
+      #x = c(-.9,1.1),
+      label = paste('n =', length(y), '\n')
+    )
+  )
+}
+Estaciones_datos_actuales_y_previos<- Caudales_SUP %>% group_by(Estacion) %>% 
+  filter(complete.cases(Caudal_l_s)) %>% 
+  summarise(max=max(Fecha_Muestra)) %>% 
+  filter(max>as.Date(Fecha_comparativa,"%Y-%m-%d")) %>% data.frame() %>% 
+   select(Estacion) %>% pull()
+
+for (Subcca_i in Caudales_SUP %>% select(Subcuenca) %>%  distinct() %>% pull() %>%  as.list()) {
+  #Subcca_i %>% filter()
+  #Subcca_i <- Caudales_SUP %>% summarise(unique(Subcuenca)) %>% slice(1)
+  df_i<- Caudales_SUP %>%
+    filter(Subcuenca==Subcca_i,complete.cases(Caudal_l_s)) %>%
+    arrange(Microcuenca) %>%
+    group_by(Estacion) %>%
+    filter(n>10) %>% ungroup()
+  if(df_i %>% nrow()>10)({
+    print(Subcca_i)
+    df_i<- df_i %>%
+      filter(Estacion %in% Estaciones_datos_actuales_y_previos) %>% 
+      # Elimino aquellos periodos que no tienen datos
+      group_by(Estacion, Periodo) %>%
+      filter(n() > 0) %>%
+      ungroup()
+    Y_label <- df_i %>% summarise(max=max(Caudal_l_s)) %>% pull()
+    Y_label <- Y_label*1.3
+    Subcca_i_plot<- df_i %>% 
+    ggplot(aes(x=Estacion,y=Caudal_l_s,fill=Periodo, color=Periodo))+
+    geom_boxplot(outlier.size = 0.5, outlier.color = "gray45",alpha=0.7)+
+    # stat_summary(fun.data = stat_box_data,
+    #                geom = "text",
+    #                hjust = 0.5,
+    #                vjust = 0.9,size=2)+
+    #facet_wrap( ~ variable, scales="free")+
+    scale_fill_manual(values = c("A: Periodos previos" = "#0095C8",
+                                 "B: Periodos actuales" = "#004764")) +  # Cambia los colores del fill+
+    scale_color_manual(values = c("A: Periodos previos" = "#00779e",
+                                "B: Periodos actuales" = "#002330")) +
+
+    ylab("Caudal (l/s)")+
+    xlab("Estaciones")+
+    ggtitle(label = paste0(Subcca_i))+
+    theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+            plot.title = element_text(hjust = 0.5))
+  plot(Subcca_i_plot)
+  jpeg(file=paste0(output_dir,Subcca_i,".jpeg"),quality = 100,res=150,width=1000, height=350)
+  plot(Subcca_i_plot)
+  dev.off()
+  })
+}
+
+```
+
+### 1.1.2 Analisis Caudales por Subcuenca y Mes
+
+```{r echo=F}
+outoput_dir_graficos_scca_mes <-
+"./03_Results/01_Analisis_caudal/01_Superficial/B_Plots/Caudales_boxplots_pareados_por_mes/"
+outoput_dir_tabular_scca_mes <- "./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/Analisis_caudal_por_subcuenca_Año_Mes.xlsx"
+
+```
+
+Salidas Graficas: 
+-   `r outoput_dir_graficos_scca_mes` 
+ 
+Salidas Tabulares: 
+-   `r outoput_dir_tabular_scca_mes`
+
+```{r echo=F,results=F,warning=F, message=F}
+
+if(!dir.exists(output_dir)) dir.create(output_dir,recursive = T)
+Sys.setlocale("LC_TIME", "Spanish")
+Caudales_SUP <- Caudales_SUP %>% 
+  mutate(Año=format(Fecha_Muestra,"%Y"),
+                        Mes=format(Fecha_Muestra,"%B"))
+Analisis_caudal_por_subcuenca_año_Mes<- Caudales_SUP %>%
+  #  filter(Subcuenca==Subcca_i,complete.cases(Caudal_l_s)) %>%
+    arrange(Cuenca,Subcuenca,Microcuenca,Estacion) %>%
+    group_by(Cuenca,Subcuenca,Microcuenca,Estacion,Año,Mes) %>%
+    summarise('N° Reg'= n(),
+              max=max(Caudal_l_s,na.rm = T),
+              q95=quantile(Caudal_l_s,.95,na.rm = T),
+              q75=quantile(Caudal_l_s,.75,na.rm = T),
+              Promedio=mean(Caudal_l_s,na.rm = T),
+              Mediana=median(Caudal_l_s,na.rm = T),
+              q25=quantile(Caudal_l_s,.25,na.rm = T),
+              q05=quantile(Caudal_l_s,.05,na.rm = T),
+              min=min(Caudal_l_s,na.rm = T),
+              sd=sd(Caudal_l_s,na.rm = T)) %>% 
+  ungroup() 
+
+write.xlsx2(Analisis_caudal_por_subcuenca_año_Mes%>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .))),
+  outoput_dir_tabular_scca_mes)
+
+Analisis_caudal_por_subcuenca_año_Mes$Estación <- Analisis_caudal_por_subcuenca_año_Mes$Estacion
+for (Subcca_i in Caudales_SUP %>% select(Subcuenca) %>%  distinct() %>% pull() %>%  as.list()) {
+  
+  output_dir_Subcca_i <- paste0(outoput_dir_graficos_scca_mes,Subcca_i,"/")
+  if(!dir.exists(output_dir_Subcca_i)) dir.create(output_dir_Subcca_i,recursive = T)
+  
+  for(Mes_i in Caudales_SUP %>% select(Mes) %>%  distinct() %>% pull() %>%  as.list()){
+  #Subcca_i <- Caudales_SUP %>% summarise(unique(Subcuenca)) %>% slice(1)
+   # df_sccai_mes_i<- Caudales_SUP %>%
+   #   filter(Subcuenca==Subcca_i,Mes==Mes_i,complete.cases(Caudal_l_s)) 
+  df_sccai_mes_i<- Analisis_caudal_por_subcuenca_año_Mes%>%
+    filter(Subcuenca==Subcca_i,Mes==Mes_i)
+    n_estaciones <- df_sccai_mes_i %>% select(Estacion) %>% unique() %>% pull() %>% length()
+    {
+    #print(Subcca_i)
+    # df_i<- df_i %>%
+    #   # Elimino aquellos periodos que no tienen datos
+    #   group_by(Estacion) %>%
+    #   filter(n() > 0) %>%
+    #   ungroup()
+    df_sccai_mes_i
+    #Y_label <- df_sccai_mes_i %>% summarise(max=max(Promedio)) %>% pull()
+    #Y_label <- Y_label*1.3
+    Subcca_i_plot<- df_sccai_mes_i %>% 
+    ggplot(aes(x=Año,y=Promedio,fill=Estación))+
+    geom_bar(stat = 'identity',position="dodge")+
+    scale_fill_paletteer_d("nationalparkcolors::GeneralGrant")+ #https://r-graph-gallery.com/color-palette-finder
+    #scale_fill_manual(values=paletteer::paletteer_d("lisa::FridaKahlo")[1:n_estaciones]) +
+    # geom_errorbar(aes(ymin=Promedio-sd, ymax=Promedio+sd), lwd=.1,
+    #              position=position_dodge(.9)) +
+    ylab("Caudal (l/s)")+
+    xlab("Año")+
+    ggtitle(label = paste0(Subcca_i,", mes de ",Mes_i))+
+    theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+            plot.title = element_text(hjust = 0.5))
+
+  jpeg(file=paste0(output_dir_Subcca_i,Subcca_i,"_",Mes_i,".jpeg"),quality = 100,res=150,width=1000, height=350)
+  
+  plot(Subcca_i_plot)
+  dev.off()
+  }
+}
+}
+
+
+```
+
+*Series temporales* 
+-   Se consideró como periodo previo aquellas fechas anteriores a `r Fecha_comparativa` 
+-   Se utilizaron aquellas estaciones que presentan mas de 15 datos. 
+-   Se utilizaron datos a partir del 2010
+
+```{r echo=F,warning=F, message=F}
+  # this will also load grid package
+#grid.locator(unit="native")
+#devtools::install_github("NicolasH2/ggbrace",force = TRUE)
+# library(ggbrace)
+# library(ggpubr)
+# library(grid)
+# #grid.locator(unit="native")
+# library(pBrackets)
+```
+
+```{r echo=F,warning=F, message=F}
+output_dir <- "./03_Results/01_Analisis_caudal/01_Superficial/B_Plots/Caudales_Series_Temporales_Subcuencas/"
+if(!dir.exists(output_dir)) dir.create(output_dir,recursive = T)
+Estaciones_datos_actuales_y_previos<- Caudales_SUP %>% group_by(Estacion) %>% 
+  filter(complete.cases(Caudal_l_s)) %>% 
+  summarise(max=max(Fecha_Muestra)) %>% 
+  filter(max>as.Date(Fecha_comparativa,"%Y-%m-%d")) %>% data.frame() %>% 
+   select(Estacion) %>% pull()
+
+for (Subcca_i in Caudales_SUP %>% select(Subcuenca) %>%  distinct() %>% pull() ) {
+
+
+  #Subcca_i <- Caudales_SUP %>% select(Subcuenca) %>%  distinct() %>% slice(1) %>% pull()
+  df_i<- Caudales_SUP %>%
+    filter(Estacion%in%Estaciones_datos_actuales_y_previos) %>% 
+    filter(Subcuenca==Subcca_i) %>%
+   # complete(Fecha_Muestra = full_seq(Fecha_Muestra,period=1, tol = 30),
+   #          fill = list(Value = NA))%>%
+    arrange(Microcuenca) %>%
+    group_by(Estacion) %>%
+    filter(n>10) %>% ungroup() %>%
+    mutate(Fecha_Muestra=as.POSIXct(Fecha_Muestra,
+                                    format = "%Y-%m-%d %H:%M:%S %z", tz = "GMT") %>%
+             as.Date(format = "%Y-%m-%d")) %>%
+    ungroup()
+
+   ###  Relleno con NA las fechas faltantes
+    complete_dates <- data.frame(Fecha_Muestra = seq.Date(min(df_i$Fecha_Muestra),
+                                                      max(df_i$Fecha_Muestra),
+                                                      by = "90 days"))
+
+    # Obtén las estaciones únicas
+    estaciones <- unique(df_i$Estacion)
+    #
+    # # Crea un dataframe con todas las combinaciones posibles de estaciones y fechas
+    complete_data <- expand.grid(Estacion = estaciones,
+                                 Fecha_Muestra =
+                                   complete_dates$Fecha_Muestra)
+
+    # Realiza un merge para llenar los valores faltantes con NA
+    df_i <- merge(complete_data, df_i,
+                  by = c("Estacion", "Fecha_Muestra"),
+                  all.y = TRUE, all.x = TRUE)%>%
+      arrange(Estacion,Fecha_Muestra)
+  if(df_i %>% nrow()>10)({
+    #print(Subcca_i)
+    # complete_dates <- data.frame(Fecha_Muestra = seq.Date(min(df_i$Fecha_Muestra),
+    #                                                   max(df_i$Fecha_Muestra),
+    #                                                   by = "30 days"))
+
+
+
+    df_i<- df_i %>% filter(Fecha_Muestra>as.Date("01-01-2010",format="%d-%M-%Y"))
+    Subcca_i_plot <- df_i%>%
+      ggplot()+
+    #geom_point( aes(x=Fecha_Muestra,y=Caudal_l_s,colour=Estacion))+
+    geom_line( aes(x=Fecha_Muestra,y=Caudal_l_s,colour=Estacion))+
+    geom_vline(xintercept=Fecha_comparativa,
+               colour=Ausenco_colores_oscuros[2],linetype="dashed") +
+      annotate("text", x = Fecha_comparativa, y = -Inf, label = Fecha_comparativa,
+           angle = 90, vjust = -0.5, hjust = -1.3, size = 3, colour = Ausenco_colores_oscuros[2]) +
+    # # geom_text(aes(x = Fecha_comparativa, y = 100), angle = 90,
+    #           label = "Fecha de\nactualizacion del IIA",
+    #           colour = Ausenco_colores_oscuros[2], hjust = -0.1) +
+    scale_x_date(expand = c(0, 0))+
+    #facet_wrap( ~ variable, scales="free")+
+    scale_y_continuous(expand = c(0, 0))+
+
+    ylab("Caudal (l/s)")+
+    xlab("Estaciones")+
+    ggtitle(label = paste0(
+                           "Subcuenca ",gsub("Subcuenca","",Subcca_i)))+
+    theme_minimal() +
+      scale_x_date(expand = c(0, 0), date_breaks = "1 year", date_labels = "%Y") +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+            plot.title = element_text(hjust = 0.5))
+
+      # grid.brackets(df_i %>%
+      #              select(Fecha_Muestra) %>%
+      #              summarise(min(Fecha_Muestra))%>% pull(),
+      #               0, Fecha_comparativa, 0,  lwd=1, ticks=NA, type = 4)
+  #   geom_bracket(xmin = df_i %>%
+  #                  select(Fecha_Muestra) %>%
+  #                  summarise(min(Fecha_Muestra))%>% pull(),
+  #   xmax = Fecha_comparativa, y.position = -1000,
+  #   bracket.nudge.y=-10,
+  #   label = "Periodo previo",
+  #   tip.length = c(0.2, 0.02)
+  # )
+
+    plot(Subcca_i_plot)
+
+  jpeg(file=paste0(output_dir,Subcca_i,".jpeg"),
+       quality = 100,res=150,width=1000, height=350)
+  plot(Subcca_i_plot)
+  dev.off()
+  })
+
+}
+
+```
+```{r echo=F,warning=F, message=F}
+output_dir <- "./03_Results/01_Analisis_caudal/01_Superficial/B_Plots/Caudales_Series_Temporales_Subcuencas_points/"
+if(!dir.exists(output_dir)) dir.create(output_dir,recursive = T)
+Estaciones_datos_actuales_y_previos<- Caudales_SUP %>% group_by(Estacion) %>% 
+  filter(complete.cases(Caudal_l_s)) %>% 
+  summarise(max=max(Fecha_Muestra)) %>% 
+  filter(max>as.Date(Fecha_comparativa,"%Y-%m-%d")) %>% data.frame() %>% 
+   select(Estacion) %>% pull()
+
+for (Subcca_i in Caudales_SUP %>% select(Subcuenca) %>%  distinct() %>% pull() ) {
+
+
+  #Subcca_i <- Caudales_SUP %>% select(Subcuenca) %>%  distinct() %>% slice(1) %>% pull()
+  df_i<- Caudales_SUP %>%
+    filter(Estacion%in%Estaciones_datos_actuales_y_previos) %>% 
+    filter(Subcuenca==Subcca_i) %>%
+   # complete(Fecha_Muestra = full_seq(Fecha_Muestra,period=1, tol = 30),
+   #          fill = list(Value = NA))%>%
+    arrange(Microcuenca) %>%
+    group_by(Estacion) %>%
+    filter(n>10) %>% ungroup() %>%
+    mutate(Fecha_Muestra=as.POSIXct(Fecha_Muestra,
+                                    format = "%Y-%m-%d %H:%M:%S %z", tz = "GMT") %>%
+             as.Date(format = "%Y-%m-%d")) %>%
+    ungroup()
+
+   ###  Relleno con NA las fechas faltantes
+    complete_dates <- data.frame(Fecha_Muestra = seq.Date(min(df_i$Fecha_Muestra),
+                                                      max(df_i$Fecha_Muestra),
+                                                      by = "90 days"))
+
+    # Obtén las estaciones únicas
+    estaciones <- unique(df_i$Estacion)
+    #
+    # # Crea un dataframe con todas las combinaciones posibles de estaciones y fechas
+    complete_data <- expand.grid(Estacion = estaciones,
+                                 Fecha_Muestra =
+                                   complete_dates$Fecha_Muestra)
+
+    # Realiza un merge para llenar los valores faltantes con NA
+    df_i <- merge(complete_data, df_i,
+                  by = c("Estacion", "Fecha_Muestra"),
+                  all.y = TRUE, all.x = TRUE)%>%
+      arrange(Estacion,Fecha_Muestra)
+  if(df_i %>% nrow()>10)({
+    #print(Subcca_i)
+    # complete_dates <- data.frame(Fecha_Muestra = seq.Date(min(df_i$Fecha_Muestra),
+    #                                                   max(df_i$Fecha_Muestra),
+    #                                                   by = "30 days"))
+
+
+
+    df_i<- df_i %>% filter(Fecha_Muestra>as.Date("01-01-2010",format="%d-%M-%Y"))
+    Subcca_i_plot <- df_i%>%
+      ggplot()+
+    #geom_point( aes(x=Fecha_Muestra,y=Caudal_l_s,colour=Estacion))+
+    geom_point(aes(x = Fecha_Muestra, y = Caudal_l_s, color = Estacion),size=0.5)+
+    geom_vline(xintercept=Fecha_comparativa,
+               colour=Ausenco_colores_oscuros[2],linetype="dashed") +
+      annotate("text", x = Fecha_comparativa, y = -Inf, label = Fecha_comparativa,
+           angle = 90, vjust = -0.5, hjust = -1.3, size = 3, colour = Ausenco_colores_oscuros[2]) +
+    # # geom_text(aes(x = Fecha_comparativa, y = 100), angle = 90,
+    #           label = "Fecha de\nactualizacion del IIA",
+    #           colour = Ausenco_colores_oscuros[2], hjust = -0.1) +
+    #scale_x_date(expand = c(0, 0))+
+    #facet_wrap( ~ variable, scales="free")+
+    scale_y_continuous(expand = c(0, 0))+
+
+    ylab("Caudal (l/s)")+
+    xlab("Estaciones")+
+    ggtitle(label = paste0(
+                           "Subcuenca ",gsub("Subcuenca","",Subcca_i)))+
+    theme_minimal() +
+      scale_x_date(expand = c(0, 0), date_breaks = "1 year", date_labels = "%Y") +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+            plot.title = element_text(hjust = 0.5))
+
+      # grid.brackets(df_i %>%
+      #              select(Fecha_Muestra) %>%
+      #              summarise(min(Fecha_Muestra))%>% pull(),
+      #               0, Fecha_comparativa, 0,  lwd=1, ticks=NA, type = 4)
+  #   geom_bracket(xmin = df_i %>%
+  #                  select(Fecha_Muestra) %>%
+  #                  summarise(min(Fecha_Muestra))%>% pull(),
+  #   xmax = Fecha_comparativa, y.position = -1000,
+  #   bracket.nudge.y=-10,
+  #   label = "Periodo previo",
+  #   tip.length = c(0.2, 0.02)
+  # )
+
+
+  jpeg(file=paste0(output_dir,Subcca_i,".jpeg"),
+       quality = 100,res=150,width=1000, height=350)
+  plot(Subcca_i_plot)
+  dev.off()
+  })
+
+}
+
+```
+
+### 1.1.2 Analisis Tabla: `r tablas_caudal[[2]]`
+
+```{r echo=F,warning=F, message=F}
+Caudales_SUP_Nivel <- sqlFetch(conection, tablas_caudal[[2]])
+Caudales_SUP_Nivel <-  merge(Caudales_SUP_Nivel,SUP_Ubicacion,by.x="ID_Estacion",by.y="Estacion")
+Caudales_SUP_Nivel$Estacion <- Caudales_SUP_Nivel$ID_Estacion
+Caudales_SUP_Nivel_sf <- SUP_sf %>% filter(Estacion%in%Caudales_SUP_Nivel$Estacion)
+
+# Los datos presentes en la tabla corresponden a las estaciones `r Caudales_SUP_Nivel %>% select(Estacion) %>% unique() %>% pull()`, donde la estacion "E_IPL" no presentó registros.
+
+```
+
+```{r echo=F}
+# oms<- read_osm(st_bbox(Caudales_SUP_Nivel_sf),ext=1.3)
+# stars::write_stars(oms,"./02_Data/Base_maps/Caudales_SUP_Nivel.tif")
+```
+
+```{r echo=F,warning=F, message=F}
+osm_sup <- stars::read_stars("./02_Data/Base_maps/Caudales_SUP_Nivel.tif")
+#osm_sup <- project(osm_sup,"EPSG:4326")
+
+#Caudales_SUP_Nivel_sf <- Caudales_SUP_Nivel_sf %>% st_transform(4326)
+
+
+tm_shape(osm_sup,projection=4326,is.master = T)+ tm_rgb(alpha =1)+
+  tm_shape(Cuencas %>% filter(Subcuenca%in%Caudales_SUP_Nivel_sf$Subcuenca))+
+  tm_fill(col="Subcuenca",alpha = 0.6)+
+  tm_shape(Cuencas)+tm_borders(col="gray53")+
+
+  tm_shape(Caudales_SUP_Nivel_sf,bbox = st_bbox(SUP_sf))+
+  tm_dots(size = 0.2)+
+  tm_text("Estacion", size = 1/2,ymod=0.5)+
+
+  #tm_shape((Provincias))+tm_polygons(alpha =0,lwd=0.4,border.col="black")+
+  #tm_shape((Provincia_de_Corriente))+ tm_polygons(alpha =0.6,lwd=1.3,border.col="black",col="salmon")+
+
+  tm_graticules(lwd = 0.5,alpha   = 0.2) +
+  tm_compass(position = c("right", "top")) +
+  tm_scale_bar(position=c("center", "bottom"))+
+  tm_credits("F.Corvalan, 2024",size = 0.4,position=c("LEFT","BOTTOM"),
+             bg.color = "white",bg.alpha = 0.8)+
+  tm_layout(legend.position = c("RIGHT","BOTTOM"),legend.bg.color = "white",
+            legend.bg.alpha = 1,legend.frame = "gray50",
+            main.title = paste0("Sitios de monitoreo hidrologico superficial\n","Tabla: ",
+                                tablas_caudal[[2]]),
+            main.title.size=.8,
+            main.title.position=c("center"),scale = 1)
+
+```
+
+```{=tex}
+\newpage
+\blandscape
+```
+```{r include=T,echo=FALSE, warning=F}
+Resumen_Caudales_SUP_Nivel_Total <-summary_process(Caudales_SUP_Nivel,
+                                       parameter = "SensorCorregido_cm",
+                                       date = "Fecha",
+                                       groups = "Estacion",Cca =T,
+                                       Subcca = T,Microcca = T)%>%
+               select(Cca., Subcca.,Microcca.,Estacion, everything())%>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .)))
+
+Resumen_Caudales_SUP_Nivel_Periodo_Previo <-summary_process(
+  Caudales_SUP_Nivel%>%filter(Fecha<Fecha_comparativa),
+                                       parameter = "SensorCorregido_cm",
+                                       date = "Fecha",
+                                       groups = "Estacion",Cca =T,
+                                       Subcca = T,Microcca = T)%>%
+               select(Cca., Subcca.,Microcca.,Estacion, everything())%>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .)))
+
+if(Caudales_SUP_Nivel%>%filter(Fecha>=Fecha_comparativa) %>% nrow() >0)(
+  {
+  Resumen_Caudales_SUP_Nivel_Periodo_Posterior <-summary_process(
+    Caudales_SUP_Nivel%>%filter(Fecha>=Fecha_comparativa),
+                                         parameter = "SensorCorregido_cm",
+                                         date = "Fecha",
+                                         groups = "Estacion",Cca =T,
+                                         Subcca = T,Microcca = T)%>%
+               select(Cca., Subcca.,Microcca.,Estacion, everything())%>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .)))
+  write.xlsx2(Resumen_Caudales_SUP_Nivel_Periodo_Posterior,"./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/Resumen_Caudales_SUP_Nivel_Periodo_Posterior.xlsx")
+})
+
+directorio_tabla_total = "./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/Resumen_Caudales_SUP_Nivel_Totalidad_datos.xlsx"
+write.xlsx2(Resumen_Caudales_SUP_Nivel_Total,directorio_tabla_total)
+
+directorio_Resumen_Caudales_SUP_Nivel_Periodo_Previo ="./03_Results/01_Analisis_caudal/01_Superficial/A_Tables/Resumen_Caudales_SUP_Nivel_Periodo_Previo.xlsx"
+write.xlsx2(Resumen_Caudales_SUP_Nivel_Periodo_Previo,directorio_Resumen_Caudales_SUP_Nivel_Periodo_Previo)
+#
+
+
+knitr::kable(Resumen_Caudales_SUP_Nivel_Total ,
+             digits = 2,caption  ="Resumen de los datos de: Caudales SUP Nivel",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%  # Ajusta el tamaño de la fuente
+  column_spec(1, width = "1cm") %>%  # Ancho de la primera columna
+  column_spec(c(2,3,4), width = "1.5cm") %>%
+  collapse_rows(columns = 1:4, valign = "middle")%>%
+  kableExtra::footnote(general = paste0("Directorio: ",directorio_tabla_total))
+
+```
+
+\elandscape
+
+```{r include=F}
+
+# tablas_caudal<- grep("Caudal|Nivel",grep("SUP",Tables$TABLE_NAME,value = T),value=T)
+# tablas_caudal<- grep("Resumen",tablas_caudal,invert = T,value = T)
+# columns_to_check <- c("SensorCorregido_cm", "Caudal_l_s", "Q_Med_l_seg")
+#
+# Date_columns <- c("Fecha_Muestra","Fecha")
+#
+# for(i in tablas_caudal){
+#   df <- sqlFetch(conection, i)
+#   existing_columns <- columns_to_check[columns_to_check %in% colnames(df)]
+#   date_existing_columns<- Date_columns[Date_columns %in% colnames(df)]
+#   if (length(existing_columns) > 0) {
+#     df <- df %>% filter(complete.cases(.[, existing_columns]))
+#   }
+#   #df <- df %>% filter(complete.cases(SensorCorregido_cm,Caudal_l_s,Q_Med_l_seg))
+#   print(i)
+#   if (length(date_existing_columns) > 0) {
+#     df <- df %>% filter(complete.cases(.[, date_existing_columns]))
+#     print(df %>% min(date_existing_columns,na.rm = T))#min(df$Fecha,na.rm=T))
+#    }
+#
+#   #print(min(df$Fecha_Muestra))
+#   #print(min(df$Fecha,na.rm=T))
+# }
+
+```
+
+# 1.2 Hidroquimica Superficial
+
+Datos tabulares disponibles:
+
+```{r echo=F}
+tablas_hidroqca<- grep("Hidroquimica",grep("SUP",Tables$TABLE_NAME,value = T),value=T)
+tablas_hidroqca<- grep("Resumen",tablas_hidroqca,invert = T,value = T)
+print(tablas_hidroqca)
+```
+
+### 1.2.1 Analisis Tabla: `r tablas_hidroqca[[1]]`
+
+```{r echo=F}
+AG_SUP_Hidroquimica <- sqlFetch(conection, tablas_hidroqca[1])
+AG_SUP_Hidroquimica <-  merge(AG_SUP_Hidroquimica,SUP_Ubicacion,by.x="ID_Estacion",by.y="Estacion")
+AG_SUP_Hidroquimica$Estacion <- NULL
+names(AG_SUP_Hidroquimica)[names(AG_SUP_Hidroquimica)=="ID_Estacion"] <- "Estacion"
+
+# Filtro las estaciones utilizadas en el IIA
+AG_SUP_Hidroquimica <- AG_SUP_Hidroquimica %>%
+  filter(Estacion%in%Estaciones_a_utilizar)
+
+parametros_qcos <- AG_SUP_Hidroquimica %>% select(10:87) %>%
+  names()
+```
+
+Estaciones sin datos disponibles de caudal superficial:
+
+```{r echo=F}
+
+Estaciones_utilizadas_IIA %>% filter(Componente=="AGUA SUPERFICIAL") %>% 
+  filter(Punto %in% (AG_SUP_Hidroquimica$Estacion)) %>% select(Punto) %>% unique() %>% pull()
+
+```
+
+**Datos Negativos**
+
+La base de datos presenta registros de valores negativos, tal como se detalla a continuación:
+
+```{r echo=F}
+outoput_dir_valores_negativos_hidroqcos <- "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/AG_SUP_Hidroquimica_Valores_negativos.xlsx"
+
+```
+
+-   `r outoput_dir_valores_negativos_hidroqcos`
+
+
+```{r echo=F,warning=F}
+# See the Negative values
+
+Valores_negativos <- AG_SUP_Hidroquimica %>% pivot_longer(parametros_qcos,
+                                     names_to = "Parámetros",
+                                     values_to = "Valor") %>%
+  group_by(Parámetros) %>%
+  filter(complete.cases(Valor)) %>%
+  summarise("Valores Negativos" = paste(unique(Valor[Valor < 0]), collapse = " ; ")) %>%
+  mutate(Parámetros=gsub("_"," ",gsub("mg_l",("(mg/L)"),Parámetros)))
+
+
+write.xlsx2(Valores_negativos,outoput_dir_valores_negativos_hidroqcos)
+
+knitr::kable(Valores_negativos,
+             digits = 2,caption  ="Valores Negativos Parámetros Quimicos",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%  # Ajusta el tamaño de la fuente
+  column_spec(1, width = "7cm")  %>%
+  kable_paper("striped", full_width = F) %>%
+  kableExtra::footnote(general = paste0("Directorio: ",
+                                        outoput_dir_valores_negativos_hidroqcos))
+```
+
+**Corrección de los valores**
+
+Asumiendo que los valores negativos corresponden al limite de detección, considerando un criterio conservador, los mismos fueron procesados como valor absoluto, por ejemplo valor de -0,5 mg/L fue considerado como 0,5 mg/L
+
+```{r echo=F}
+AG_SUP_Hidroquimica <- AG_SUP_Hidroquimica %>%
+  mutate(across(all_of(parametros_qcos),abs))
+
+
+AG_SUP_Hidroquimica_summary_table <- AG_SUP_Hidroquimica %>%
+  pivot_longer(parametros_qcos,
+               names_to = "Parámetros",
+               values_to = "Valor") %>%
+  group_by(Parámetros) %>%
+  mutate(Parámetros=gsub("_"," ",gsub("mg_l",("(mg/L)"),Parámetros)))
+
+# mpg_list <- split(AG_SUP_Hidroquimica_summary_table$Valor,
+#                   AG_SUP_Hidroquimica_summary_table$Parámetros)
+
+inline_plot <- AG_SUP_Hidroquimica_summary_table %>% group_by(Parámetros) %>%
+  filter(complete.cases(Valor)) %>%
+  summarise( Boxplot = "",
+             n=n(),
+             min=min(Valor),
+             Promedio=mean(Valor),
+             max=max(Valor),
+             sd=sd(Valor))
+
+knitr::kable(inline_plot,
+             digits = 2,caption  ="Datos hidroquímicos superficiales - Totalidad de Datos",
+             booktabs = TRUE,align = "c")%>%
+  kable_styling(row_label_position = "c",
+                position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%
+  # column_spec(2, image = spec_boxplot(mpg_list,width = 300,
+  #                                     same_lim=F, pch=0.001))%>%
+  kable_paper("striped", full_width = F)
+
+```
+
+## 1.2.2 Comparacion de datos con los niveles de guia
+
+```{=tex}
+\newpage
+\blandscape
+```
+```{r echo=F, message=F,warning=F}
+names(limites_tabla_knit) <-c("Parámetro",
+                              "Unidad",
+                              "Bebida Humana",
+                              "P.V.A.A. dulce",
+                              "P.V.A.A. saladas",
+                              "P.V.A.A. salobres",
+                              "Irrigación","Bebida de ganado")
+knitr::kable(limites_tabla_knit%>% select(!Unidad),caption  ="Niveles guia DP1426-LN24585",
+             booktabs = TRUE,align = "c")%>%
+  kable_styling(row_label_position = "c",
+                position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%
+    column_spec(1,width = "5cm")%>%
+  kable_paper("striped", full_width = F)
+
+```
+
+\elandscape
+
+```{r echo=F, message=F,warning=F}
+
+# limites %>% select(Constituyente) %>% pull()
+AG_SUP_Hidroquimica_pivot<- AG_SUP_Hidroquimica %>%
+  pivot_longer(parametros_qcos,
+               names_to = "Parámetros",
+               values_to = "Valor")
+#AG_SUP_Hidroquimica_pivot$Unidad <- NULL
+# AG_SUP_Hidroquimica_pivot %>% select(Parámetros) %>% arrange(Parámetros)%>% unique() %>% pull()
+AG_SUP_Hidroquimica_pivot <- AG_SUP_Hidroquimica_pivot %>%
+  filter(complete.cases(Valor)) %>%
+  mutate(Unidad=if_else(grepl("mg_l",Parámetros), "(mg/L)",
+                        if_else(grepl("_ppt",Parámetros), "(ppt)",
+                        if_else(grepl("uS_cm",Parámetros), "(µS/cm)",""))))
+
+
+renombramientos <- list(
+"Ag_mg_l" = "Plata  (Total)",
+"Al_mg_l" = "Aluminio (Total)",
+"As_mg_l" = "Arsénico  (Total)",
+"Ba_mg_l" = "Bario  (Total)",
+"Be_mg_l"= "Berilio  (Total)",
+"B_mg_l" = "Boro  (Total)",
+"Au_mg_l"  = "Oro (Total)",
+"Cd_mg_l" = "Cadmio  (Total)",
+"CN_WAD_mg_l"= "Cianuro  (Total)",
+"Zn_mg_l" = "Cinc  (Total)",
+"Co_mg_l"  ="Cobalto  (Total)",
+"Cu_mg_l"="Cobre  (Total)",
+"Cr_mg_l"  ="Cromo  (Total)" ,
+"Cr6_mg_l"="Cromo  (+6)",
+"F_mg_l"="Flúor",
+"Mn_mg_l" = "Manganeso  (Total)",
+"Hg_mg_l" = "Mercurio  (Total)",
+"Mo_mg_l" = "Molibdeno",
+"Ni_mg_l"  ="Níquel  (Total)",
+"N_NO3_mg_l" ="Nitrato",
+"N_NO2_mg_l"    ="Nitrito",
+"OD_mg_l"="Oxígeno  Disuelto",
+"Pd_mg_l" = "Paladio  (Total)",
+"pH"= "pH",
+"Pb_mg_l" = "Plomo  (Total)" ,
+"Sb_mg_l" = "Antimonio  (Total)",
+"Se_mg_l" = "Selenio  (Total)",
+"U_mg_l" = "Uranio  (Total)" ,
+"V_mg_l" ="Vanadio (Total)"
+#"SDT"
+#"Fluoruro  (Total)"
+)
+
+# Renombramos los valores en la columna Parametro
+AG_SUP_Hidroquimica_pivot <- AG_SUP_Hidroquimica_pivot %>%
+  mutate(Parámetros = recode(Parámetros, !!!renombramientos)) %>%
+  mutate(Valor=if_else(Unidad=="(mg/L)",Valor*1000,Valor),
+         Unidad=if_else(Unidad=="(µg/L)","(mg/L)",Unidad))
+
+AG_SUP_Hidroquimica_pivot_B <- merge(AG_SUP_Hidroquimica_pivot,
+                                   limites,
+                                   by.x="Parámetros",
+                                   by.y="Constituyente",
+                                   all = F)
+
+# AG_SUP_Hidroquimica_pivot_B%>%
+#   filter(Parámetros=="Aluminio (Total)" ) %>% select("Valor") %>% max(na.rm=T)
+
+AG_SUP_Hidroquimica_pivot_C <- AG_SUP_Hidroquimica_pivot_B %>%
+  filter(complete.cases(Valor)) %>%
+  mutate(Cuenca=Cuenca,
+         Subcuenca=Subcuenca,
+         Microcuenca=Microcuenca,
+         Fecha_Muestra=Fecha_Muestra,
+         Parámetros=Parámetros,
+         Valor=Valor,
+         Supera_Para.Bebida.Humana=
+           if_else(Valor>Fuentes.de.agua.para.Bebida.Humana|
+                     Valor<Menor.Fuentes.de.agua.para.Bebida.Humana,"X",""),
+
+        Supera_Protección.de.vida.acuática.en.agua.dulce.superficial=
+           if_else(Valor>Para.protección.de.vida.acuática.en.agua.dulce.superficial|
+                     Valor<Menor.Para.protección.de.vida.acuática.en.agua.dulce.superficial,
+                   "X",""),
+         Supera_Protección.de.vida.acuática.en.aguas.saladas.superficiales=
+           if_else(Valor>Para.protección.de.vida.acuática.en.aguas.saladas.superficiales|
+                     Valor<Menor.Para.protección.de.vida.acuática.en.aguas.saladas.superficiales ,
+                     "X",""),
+
+         Supera_Protección.de.vida.acuática.en.aguas.salobres.superficiales=
+           if_else(Valor>Para.protección.de.vida.acuática.en.aguas.salobres.superficiales|
+                     Valor<
+                     Menor.Para.protección.de.vida.acuática.en.aguas.salobres.superficiales,
+                   "X",""),
+
+         Supera_Irrigación=
+           if_else(Valor>Para.Irrigación|Valor<Menor.Para.Irrigación,"X",""),
+
+         Supera_Bebida.de.ganado=if_else(Valor>Para.Bebida.de.ganado|
+                                         Valor<Menor.Para.Bebida.de.ganado,"X",""))
+
+
+AG_SUP_Hidroquimica_pivot_C <- AG_SUP_Hidroquimica_pivot_C %>%
+  select(Cuenca,Subcuenca,Microcuenca,Fecha_Muestra,Estacion,Parámetros,Valor,
+         Fuentes.de.agua.para.Bebida.Humana,
+         Para.protección.de.vida.acuática.en.agua.dulce.superficial,
+         Para.protección.de.vida.acuática.en.aguas.saladas.superficiales,
+         Para.protección.de.vida.acuática.en.aguas.salobres.superficiales,
+         Para.Irrigación,
+         Para.Bebida.de.ganado,
+         Supera_Para.Bebida.Humana,
+         Supera_Protección.de.vida.acuática.en.agua.dulce.superficial,
+         Supera_Protección.de.vida.acuática.en.aguas.saladas.superficiales,
+         Supera_Protección.de.vida.acuática.en.aguas.salobres.superficiales,
+         Supera_Irrigación,
+         Supera_Bebida.de.ganado)
+
+#AG_SUP_Hidroquimica_pivot_C %>% filter(Parámetros=="pH")
+
+AG_SUP_Hidroquimica_pivot_C_filtrado <- AG_SUP_Hidroquimica_pivot_C %>% filter(Supera_Bebida.de.ganado=="X"|
+    Supera_Irrigación=="X"|
+    Supera_Para.Bebida.Humana=="X"|
+    Supera_Protección.de.vida.acuática.en.aguas.salobres.superficiales=="X"|
+    Supera_Protección.de.vida.acuática.en.aguas.saladas.superficiales=="X"|
+    Supera_Protección.de.vida.acuática.en.agua.dulce.superficial=="X") %>%
+  arrange(Subcuenca,Estacion,Parámetros,Fecha_Muestra)
+
+
+# AG_SUP_Hidroquimica_pivot_C %>% nrow()
+# AG_SUP_Hidroquimica_pivot_C %>% filter(Supera_Bebida.de.ganado=="X"|
+#                                        Supera_Irrigación=="X"|
+#                                          Supera_Para.Bebida.Humana=="X")
+
+#paste0(round(nrow(AG_SUP_Hidroquimica_pivot_C)*100/ nrow(AG_SUP_Hidroquimica_pivot),1), " %")
+
+
+
+
+```
+
+El `r paste0(round(nrow(AG_SUP_Hidroquimica_pivot_C)*100/ nrow(AG_SUP_Hidroquimica_pivot),1), " %")` de los datos analizados presento registros superiores a los establecidos en al menos una categoria de las reglamentadas de los niveles guia del Decreto Reglamenterio 1426/96, de la Ley Nacional 24.585 .
+
+
+```{r echo=F}
+
+outoput_dir_comparacion_hidroqca_estacion <- "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Comparacion_niveles_guias_AG_SUP_Hidroquimica_por_Estacion.xlsx"
+
+outoput_dir_comparacion_hidroqca_subcuenca= "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Comparacion_niveles_guias_AG_SUP_Hidroquimica_por_Subcuenca.xlsx"
+
+```
+
+
+Salidas Tabulares: 
+
+-   `r outoput_dir_tabular_scca_mes`
+
+-   `r outoput_dir_comparacion_hidroqca_subcuenca`
+
+```{=tex}
+\newpage
+\blandscape
+```
+```{r echo=F, message=F,warning=F}
+Cantidad_datos_superiores_limite<- AG_SUP_Hidroquimica_pivot_C %>%
+  group_by(Cuenca,Subcuenca,Microcuenca,Estacion,Parámetros) %>%
+  summarise("Muestras Analizadas"=n(),
+    "N° Sup. Bebida de ganado"=sum(Supera_Bebida.de.ganado=="X", na.rm = TRUE),
+    "N° Sup. Irrigación" =sum(Supera_Irrigación=="X", na.rm = TRUE),
+    "N° Sup. Bebida Humana"=sum(Supera_Para.Bebida.Humana=="X", na.rm = TRUE),
+    "N° Sup. Protección V.A. salobres superficiales"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.salobres.superficiales=="X", na.rm = TRUE),
+    "N° Sup. Protección V.A. saladas superficiales"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.saladas.superficiales=="X", na.rm = TRUE),
+    "N° Sup Protección V.A. dulce superficial"=
+      sum(Supera_Protección.de.vida.acuática.en.agua.dulce.superficial=="X", na.rm = TRUE)) %>%
+  ungroup()
+
+
+
+write.xlsx2(Cantidad_datos_superiores_limite,outoput_dir_comparacion_hidroqca_estacion)
+
+
+names(Cantidad_datos_superiores_limite) <-c(
+                              "Cca.",
+                              "Subcca.",
+                              "Microcca",
+                              "Estacion",
+                              "Param",
+                              "N°",
+                              "N° Sup. Bebida de ganado",
+                              "N° Sup. Irrigación",
+                              "N° Sup. Bebida Humana",
+                              "N° Sup. P.V.A.A. salobres superficiales",
+                              "N° Sup. P.V.A.A. saladas superficiales",
+                              "N° Sup. P.V.A.A. dulce superficial")
+knitr::kable(Cantidad_datos_superiores_limite,
+             caption  = "Cantidad datos superiores a los Niveles guía del Decreto Reglamenterio 1426/96, de la Ley Nacional 24.585",
+             booktabs = TRUE,align = "c")%>%
+  kable_styling(row_label_position = "c",
+                position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%
+      #column_spec(1,width = "5cm")%>%
+  #kable_paper("striped", full_width = F)%>%
+  column_spec(1:3, width = "1cm") %>% 
+  column_spec(7:12, width = "2cm") %>% 
+  column_spec(1, bold = T)%>%
+  kable_classic(full_width = F) %>%
+  
+  collapse_rows(columns = 1:3, valign = "middle")%>%
+  kableExtra::footnote(general = paste0("Directorio: ",
+                                        outoput_dir_comparacion_hidroqca_estacion))
+  #   #column_spec(1,width = "5cm")%>%
+  # #kable_paper("striped", full_width = F) %>%
+  # collapse_rows(columns = 1:3, valign = "middle")%>%
+  # column_spec(1:3, width = "1cm") %>% 
+  # #column_spec(7:10, width = "1cm") %>% 
+  # footnote(general = paste0("Directorio: ",directorio_tabla))
+```
+
+\elandscape
+```{r echo=F}
+Cantidad_datos_superiores_limite_previo<- AG_SUP_Hidroquimica_pivot_C %>%
+  filter(Fecha_Muestra<Fecha_comparativa) %>% 
+  group_by(Cuenca,Subcuenca,Microcuenca,Estacion,Parámetros) %>%
+  summarise("Muestras Analizadas"=n(),
+    "N° Sup. Bebida de ganado"=sum(Supera_Bebida.de.ganado=="X", na.rm = TRUE),
+    "N° Sup. Irrigación" =sum(Supera_Irrigación=="X", na.rm = TRUE),
+    "N° Sup. Bebida Humana"=sum(Supera_Para.Bebida.Humana=="X", na.rm = TRUE),
+    "N° Sup. Protección V.A. salobres superficiales"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.salobres.superficiales=="X", na.rm = TRUE),
+    "N° Sup. Protección V.A. saladas superficiales"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.saladas.superficiales=="X", na.rm = TRUE),
+    "N° Sup Protección V.A. dulce superficial"=
+      sum(Supera_Protección.de.vida.acuática.en.agua.dulce.superficial=="X", na.rm = TRUE)) %>%
+  ungroup()
+
+
+outoput_dir_comparacion_hidroqca_previo = "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Comparacion_niveles_guias_AG_SUP_Hidroquimica_por_Estacion_periodo_previo.xlsx"
+write.xlsx2(Cantidad_datos_superiores_limite_previo,outoput_dir_comparacion_hidroqca_previo)
+
+Cantidad_datos_superiores_limite_posterior<- AG_SUP_Hidroquimica_pivot_C %>%
+  filter(Fecha_Muestra>Fecha_comparativa) %>% 
+  group_by(Cuenca,Subcuenca,Microcuenca,Estacion,Parámetros) %>%
+  summarise("Muestras Analizadas"=n(),
+    "N° Sup. Bebida de ganado"=sum(Supera_Bebida.de.ganado=="X", na.rm = TRUE),
+    "N° Sup. Irrigación" =sum(Supera_Irrigación=="X", na.rm = TRUE),
+    "N° Sup. Bebida Humana"=sum(Supera_Para.Bebida.Humana=="X", na.rm = TRUE),
+    "N° Sup. Protección V.A. salobres superficiales"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.salobres.superficiales=="X", na.rm = TRUE),
+    "N° Sup. Protección V.A. saladas superficiales"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.saladas.superficiales=="X", na.rm = TRUE),
+    "N° Sup Protección V.A. dulce superficial"=
+      sum(Supera_Protección.de.vida.acuática.en.agua.dulce.superficial=="X", na.rm = TRUE)) %>%
+  ungroup()
+
+
+outoput_dir_comparacion_hidroqca_posterior = "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Comparacion_niveles_guias_AG_SUP_Hidroquimica_por_Estacion_periodo_posterior.xlsx"
+write.xlsx2(Cantidad_datos_superiores_limite_posterior,outoput_dir_comparacion_hidroqca_posterior)
+
+
+```
+
+```{=tex}
+\newpage
+\blandscape
+```
+```{r echo=F, message=F,warning=F,eval=F}
+
+
+Cantidad_datos_superiores_limite_por_subcuencas<- AG_SUP_Hidroquimica_pivot_C %>%
+  group_by(Cuenca,Subcuenca,Parámetros) %>%
+  summarise("Muestras Analizadas"=n(),
+    "Muestras Sup. Bebida de ganado"=sum(Supera_Bebida.de.ganado=="X", na.rm = TRUE),
+    "Muestras Sup. Irrigación" =sum(Supera_Irrigación=="X", na.rm = TRUE),
+    "Muestras Sup. Bebida Humana"=sum(Supera_Para.Bebida.Humana=="X", na.rm = TRUE),
+    "Muestras Sup. P.V.A.A salobres"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.salobres.superficiales=="X", na.rm = TRUE),
+    "Muestras Sup. P.V.A.A. saladas"=
+      sum(Supera_Protección.de.vida.acuática.en.aguas.saladas.superficiales=="X", na.rm = TRUE),
+    "Muestras Sup P.V.A.A dulce"=
+      sum(Supera_Protección.de.vida.acuática.en.agua.dulce.superficial=="X", na.rm = TRUE),
+          "Max"=max(c(`Muestras Sup. Bebida de ganado`,
+                    `Muestras Sup. Irrigación`,
+                    `Muestras Sup. Bebida Humana`,
+                     `Muestras Sup. P.V.A.A salobres`,
+                    `Muestras Sup. P.V.A.A. saladas`,
+                     `Muestras Sup P.V.A.A dulce`),na.rm = T
+                    ),
+    "Max %"=round(Max*100/n(),decimales)) %>%
+  ungroup() %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), "-", .)))
+
+
+
+write.xlsx2(Cantidad_datos_superiores_limite_por_subcuencas,
+            outoput_dir_comparacion_hidroqca_subcuenca)
+
+
+# asd<- flextable(Cantidad_datos_superiores_limite_por_subcuencas) %>% 
+#    bg(j = c("Max %"), 
+#      bg = scales::col_numeric(palette = c("transparent","wheat", "red"), alpha =T,
+#                                domain =c(0, 100)))
+# Cantidad_datos_superiores_limite_por_subcuencas$`Max %` <- color_bar("red")(Cantidad_datos_superiores_limite_por_subcuencas$`Max %`)
+
+# Cantidad_datos_superiores_limite_por_subcuencas[12] <- 
+# cell_spec(Cantidad_datos_superiores_limite_por_subcuencas$`Max %`, 
+#           font_size = 8,
+#           color = spec_color(Cantidad_datos_superiores_limite_por_subcuencas$`Max %`, end = 0.9, direction = 1,palette = brewer.pal(20,"Greys") %>% rev()), 
+#           bold = T,
+#     background = spec_color(Cantidad_datos_superiores_limite_por_subcuencas$`Max %`, end = 0.9, option = "A", direction = -1,palette = brewer.pal(20,"RdYlBu") %>% rev()))
+
+# Cantidad_datos_superiores_limite_por_subcuencas$`Max %` <- color_tile("royalblue", "darkred")(Cantidad_datos_superiores_limite_por_subcuencas$`Max %`)
+
+kbl(Cantidad_datos_superiores_limite_por_subcuencas,
+    caption  ="Cantidad datos superiores a los Niveles guía del Decreto Reglamenterio 1426/96, de la Ley Nacional 24.585 por Subcuencas",
+    escape = F, 
+    booktabs = TRUE,align = "c")%>%
+  kable_styling(row_label_position = "c",
+                position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%
+    #column_spec(1,width = "5cm")%>%
+  #kable_paper("striped", full_width = F)%>%
+  column_spec(1:3, width = "1cm") %>% 
+  column_spec(7:12, width = "2cm") %>% 
+  column_spec(1, bold = T)%>%
+  kable_classic("striped",full_width = F) %>%
+  
+  collapse_rows(columns = 1:3, valign = "middle")%>%
+  kableExtra::footnote(general = paste0("Directorio: ",directorio_tabla))
+
+# kbl(Cantidad_datos_superiores_limite_por_subcuencas, escape = F, 
+#     caption  ="Cantidad datos superiores a los Niveles guía del Decreto Reglamenterio 1426/96, de la Ley Nacional 24.585 por Subcuencas",
+#              booktabs = TRUE,align = "c") %>%
+#   kable_classic( "striped",full_width = F) %>% 
+#   column_spec(1:3, width = "1cm") %>% 
+#   column_spec(7:12, width = "2cm") %>% 
+#   collapse_rows(columns = 1:3, valign = "middle")%>%
+#   footnote(general = paste0("Directorio: ",directorio_tabla)) %>% 
+#     kable_styling(row_label_position = "c",
+#                 position = "center",font_size = 7,
+#                 repeat_header_continued  = TRUE) %>% 
+#   column_spec(1, bold = T)
+
+```
+\elandscape
+
+```{r echo=F , message=F}
+Summary_tables <- function(df,parameter,
+                           date_column,date_split,
+                           base_output_directory){
+  base_output_directory <- paste0(base_output_directory,"/",parameter,"/")
+  # Imprimir o retornar el output_path para verificar
+  print(paste("Processing parameter:", parameter))
+  if(!dir.exists(base_output_directory)){
+    dir.create(base_output_directory,recursive = T)}
+  df_name <- deparse(substitute(df))
+  # df=AG_SUP_Hidroquimica
+  # parameter="pH"
+  # date_column="Fecha_Muestra"
+  # date_split=Fecha_comparativa
+  # output_directory=output_dir
+
+  df <- df %>% filter(complete.cases(!!ensym(parameter)))
+  dates <- df %>% select({{date_column}}) %>% pull()
+  results <- list()
+  output_files_dirs <- paste0(base_output_directory,"Resumen_",parameter,"_",
+         df_name,
+         c("_Totalidad_datos","_Periodo_Previo","_Periodo_Posterior"),".xlsx")
+  Resumen_Superficial_Totalidad_datos <-summary_process(df,
+                parameter = parameter,
+                date = {{date_column}},
+                groups = "Estacion",Cca =T,
+                Subcca = T,Microcca = T,digits=1)
+  results <- append(results, list(Resumen_Superficial_Totalidad_datos))
+  write.xlsx2(Resumen_Superficial_Totalidad_datos,output_files_dirs[[1]])
+
+  if(sum(dates<{{date_split}})>0)({
+  Resumen_Superficial_Periodo_Previo <-summary_process(
+  df %>%filter(!!ensym(date_column)<date_split),
+                parameter = parameter,
+                date = {{date_column}},
+                groups = "Estacion",Cca =T,
+                Subcca = T,Microcca = T)
+  results <- append(results, list(Resumen_Superficial_Periodo_Previo))
+  write.xlsx2(Resumen_Superficial_Periodo_Previo,output_files_dirs[[2]])
+
+
+  })
+  if(sum(dates>={{date_split}})>0)({
+  Resumen_Superficial_Periodo_Posterior <-summary_process(
+  df %>%filter(!!ensym(date_column)>=date_split),
+                parameter = parameter,
+                date = {{date_column}},
+                groups = "Estacion",
+                Cca =T,
+                Subcca = T,Microcca = T)
+  results <- append(results, list(Resumen_Superficial_Periodo_Posterior))
+  write.xlsx2(Resumen_Superficial_Periodo_Posterior,output_files_dirs[[3]])
+  })
+  #return(results)
+}
+```
+
+
+```{r echo=F, include=F,warning=F,message=F,eval=F}
+output_dir <- "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/AG_SUP_Hidroquimica_por_parametro/"
+Summary_tables(df=AG_SUP_Hidroquimica,
+               parameter=parametros_qcos[4],
+               date_column="Fecha_Muestra",
+               date_split=Fecha_comparativa,
+               base_output_directory=output_dir)
+
+lapply(parametros_qcos, function(param) {
+  Summary_tables(df = AG_SUP_Hidroquimica,
+                 parameter = param,
+                 date_column = "Fecha_Muestra",
+                 date_split = Fecha_comparativa,
+                 base_output_directory =output_dir)
+})
+```
+
+*Figuras*
+
+```{r echo=F, include=F,warning=F,message=F}
+boxplot_plots <- function(df,
+                          Parameter,
+                          Date_column="Fecha_Muestra",
+                          Date_split=Fecha_comparativa,
+                          by="Subcuenca",group="Estacion",
+                          Base_output_directory,
+                          Limites_cuantificacion_df){
+  # df=AG_SUP_Hidroquimica
+  #Parameter=parametros_qcos[4]
+  # Date_column="Fecha_Muestra"
+  # Date_split=Fecha_comparativa
+  # by="Subcuenca"
+  # group="Estacion"
+  # Base_output_directory="./03_Results/02_Analisis_Hidroquimico/01_Superficial/B_Plots/AG_SUP_Hidroquimica/"
+  #
+
+  param_name <- gsub("_"," ",gsub("mg_l",("(mg/L)"),Parameter))
+
+  # Límites de cuantificacion del parámetro
+  limites_cuantificacion <- paste0(gsub(" ; ","; ",
+                                   gsub("-","",
+                                          Limites_cuantificacion_df[
+                                            Limites_cuantificacion_df$Parámetros==param_name,2
+                                            ])),
+                              if_else(grepl("mg/L",param_name)," (mg/L)",""))
+  limites_cuantificacion<- reemplazar_ultimo_punto_y_coma(limites_cuantificacion)
+
+  output_dir <- paste0(Base_output_directory,Parameter,"/")
+  if(!dir.exists(output_dir)){
+    dir.create(output_dir,recursive = T)}
+
+
+  df<- df%>%
+    mutate(Periodo=if_else(!!ensym(Date_column)<Date_split,
+                         "A: Periodos previos","B: Periodos actuales"),
+           Subcuenca=paste0("Subcuenca",gsub("Subcuenca","",
+                                             gsub("Río|R.","río",Subcuenca))))
+  Subcuencas <- df %>% select({{by}}) %>% unique() %>% pull()
+  
+  stat_box_data <- function(y) {
+    return( 
+      data.frame(
+        y = 1.3*max(y),  # may need to modify this depending on your data
+        label = paste0('n= ', length(y))#,'mean =', round(mean(y), 1), '\n')
+    ))
+    }
+  
+  for (Subcuenca_i in Subcuencas) {
+    #Subcuenca_i <- Subcuencas[1]
+    Subcca_i_plot<-
+      df_i <- df %>%
+        # Elimino aquellos periodos que no tienen datos
+        #group_by({{by}}, Periodo) %>%
+        filter(!!ensym(by)=={{Subcuenca_i}}) %>%
+        #ungroup() %>%
+      # try(y_position<- df_i %>%
+      #   summarise(max=max(!!ensym(Parameter),na.rm = T)) %>%
+      #   pull())
+      # try(print(y_position))
+      ggplot(aes(x=!!ensym(group),y=!!ensym(Parameter),
+                 fill=Periodo, color=Periodo))+
+      geom_boxplot(outlier.size = 0.5, outlier.color = "gray45",alpha=0.7)+
+      scale_fill_manual(values = c("A: Periodos previos" = "#0095C8",
+                                 "B: Periodos actuales" = "#004764")) +
+
+      scale_color_manual(values = c("A: Periodos previos" = "#0095C8",
+                                    "B: Periodos actuales" = "#004764")) +
+      ylab(param_name)+
+      xlab("Estaciones")+
+      labs(title = paste0(Subcuenca_i),
+        caption = if_else(limites_cuantificacion!="",
+          paste0("Límites de cuantificación: ",limites_cuantificacion),""))+
+      theme_minimal() +
+      # stat_summary(fun.data = stat_box_data,
+      #              geom = "text",
+      #              hjust = 0.5,
+      #              vjust = 0.9,size=2)+
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5,
+                                       size = 5),
+            plot.title = element_text(hjust = 0.5))
+
+      jpeg(file=paste0(output_dir,Subcuenca_i,"_",Parameter,".jpeg"),
+       quality = 100,res=150,width=1000, height=500)
+      plot(Subcca_i_plot)
+      dev.off()
+
+    }
+}
+```
+
+
+```{r echo=F, include=F,warning=F,message=F}
+output_dir_boxplots_parametros_sbcca<- "./03_Results/02_Analisis_Hidroquimico/01_Superficial/B_Plots/AG_SUP_Hidroquimica/"
+
+lapply(parametros_qcos, function(param) {
+  boxplot_plots(df = AG_SUP_Hidroquimica,
+                 Parameter = param,
+                 Date_column = "Fecha_Muestra",
+                 Date_split = Fecha_comparativa,
+                 by="Subcuenca",group="Estacion",
+                 Base_output_directory =output_dir_boxplots_parametros_sbcca,
+                Limites_cuantificacion_df = Valores_negativos)
+
+})
+```
+
+### 1.2.3 Resumen parámetros
+
+```{r echo=F,message=F,warning=F}
+AG_SUP_Hidroquimica_pivot<- AG_SUP_Hidroquimica %>%
+  pivot_longer(parametros_qcos,
+               names_to = "Parámetros",
+               values_to = "Valor")
+#AG_SUP_Hidroquimica_pivot$Unidad <- NULL
+# AG_SUP_Hidroquimica_pivot %>% select(Parámetros) %>% arrange(Parámetros)%>% unique() %>% pull()
+AG_SUP_Hidroquimica_pivot <- AG_SUP_Hidroquimica_pivot %>%
+  filter(complete.cases(Valor)) %>%
+  mutate(Unidad=if_else(grepl("mg_l",Parámetros), "(mg/L)",
+                        if_else(grepl("_ppt",Parámetros), "(ppt)",
+                        if_else(grepl("uS_cm",Parámetros), "(µS/cm)",""))),
+         Parámetros=gsub("_"," ",gsub("_mg_l","",Parámetros)))
+
+Resumen_hidroquimico_totalidad_datos<- AG_SUP_Hidroquimica_pivot%>%
+  mutate(Parámetros=gsub("_mg_l","",Parámetros)) %>% 
+  group_by(Cuenca,Subcuenca,Parámetros) %>% 
+  filter(complete.cases(Valor)) %>% 
+  mutate(Valor=Valor) %>% 
+  summarise(Unidad=unique(Unidad),
+            n=n(),
+    max=max(Valor,na.rm = T),
+              q95=quantile(Valor,.95,na.rm = T),
+              q75=quantile(Valor,.75,na.rm = T),
+              Prom.=mean(Valor,na.rm = T),
+              Mediana=median(Valor,na.rm = T),
+              q25=quantile(Valor,.25,na.rm = T),
+              q05=quantile(Valor,.05,na.rm = T),
+              min=min(Valor,na.rm = T),
+              sd=sd(Valor,na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round,decimales)) %>% 
+  mutate(across(everything(), ~ ifelse(.==" ", "-", .)))%>% data.frame()
+
+Resumen_hidroquimico_periodo_previo<- AG_SUP_Hidroquimica_pivot%>%
+  mutate(Parámetros=gsub("_mg_l","",Parámetros)) %>% 
+  group_by(Cuenca,Subcuenca,Parámetros) %>% 
+  filter(complete.cases(Valor),Fecha_Muestra<Fecha_comparativa) %>% 
+  mutate(Valor=Valor) %>% 
+  summarise(Unidad=unique(Unidad),
+            n=n(),
+    max=max(Valor,na.rm = T),
+              q95=quantile(Valor,.95,na.rm = T),
+              q75=quantile(Valor,.75,na.rm = T),
+              Prom.=mean(Valor,na.rm = T),
+              Mediana=median(Valor,na.rm = T),
+              q25=quantile(Valor,.25,na.rm = T),
+              q05=quantile(Valor,.05,na.rm = T),
+              min=min(Valor,na.rm = T),
+              sd=sd(Valor,na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round,decimales)) %>% 
+  mutate(across(everything(), ~ ifelse(.==" ", "-", .)))%>% data.frame()
+
+Resumen_hidroquimico_periodo_posterior<- AG_SUP_Hidroquimica_pivot%>%
+  mutate(Parámetros=gsub("_mg_l","",Parámetros)) %>% 
+  group_by(Cuenca,Subcuenca,Parámetros) %>% 
+  filter(complete.cases(Valor),Fecha_Muestra>Fecha_comparativa) %>% 
+  mutate(Valor=Valor) %>% 
+  summarise(Unidad=unique(Unidad),
+            n=n(),
+    max=max(Valor,na.rm = T),
+              q95=quantile(Valor,.95,na.rm = T),
+              q75=quantile(Valor,.75,na.rm = T),
+              Prom.=mean(Valor,na.rm = T),
+              Mediana=median(Valor,na.rm = T),
+              q25=quantile(Valor,.25,na.rm = T),
+              q05=quantile(Valor,.05,na.rm = T),
+              min=min(Valor,na.rm = T),
+              sd=sd(Valor,na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round,decimales)) %>% 
+  mutate(across(everything(), ~ ifelse(.==" ", "-", .))) %>% data.frame()
+
+directorio_tabla= "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Resumen_Parámetros_Periodo_total.xlsx"
+write.xlsx2(Resumen_hidroquimico_totalidad_datos,directorio_tabla)
+
+directorio_tabla= "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Resumen_Parámetros_periodo_previo.xlsx"
+write.xlsx2(Resumen_hidroquimico_periodo_previo,directorio_tabla)
+
+directorio_tabla= "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Resumen_Parámetros_Periodo_periodo_posterior.xlsx"
+write.xlsx2(Resumen_hidroquimico_periodo_posterior,directorio_tabla)
+
+knitr::kable(Resumen_hidroquimico_totalidad_datos,caption  ="Resumen de parámetros hidroquimicos por Cuencas y/o Subcuencas ",
+             booktabs = TRUE,align = "c")%>%
+  kable_styling(row_label_position = "c",
+                position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%
+    #column_spec(1,width = "5cm")%>%
+  #kable_paper("striped", full_width = F)%>%
+  column_spec(1:3, width = "1cm") %>% 
+  column_spec(7:12, width = "1cm") %>% 
+  #column_spec(1, bold = T)%>%
+  kable_classic(full_width = F) %>%
+  
+  collapse_rows(columns = 1:3, valign = "middle")%>%
+  kableExtra::footnote(general = paste0("Directorio: ",directorio_tabla))
+```
+
+### 1.2.4 Resumen parámetros Cuenca Media del río Blanco con Subcuenca del río de La Palca
+
+```{r echo=F,message=F,warning=F}
+
+
+Resumen_hidroquimico_totalidad_datos<- AG_SUP_Hidroquimica_pivot%>%
+  filter(Cuenca=="Cuenca Media del Río Blanco"|
+         Subcuenca == "Subcuenca del río de La Palca") %>% 
+  mutate(Parámetros=gsub("_mg_l","",Parámetros)) %>% 
+  #group_by(Cuenca,Subcuenca,Parámetros) %>% 
+  filter(complete.cases(Valor)) %>% 
+  mutate(Valor=Valor) %>% 
+  summarise(Unidad=unique(Unidad),
+            n=n(),
+    max=max(Valor,na.rm = T),
+              q95=quantile(Valor,.95,na.rm = T),
+              q75=quantile(Valor,.75,na.rm = T),
+              Prom.=mean(Valor,na.rm = T),
+              Mediana=median(Valor,na.rm = T),
+              q25=quantile(Valor,.25,na.rm = T),
+              q05=quantile(Valor,.05,na.rm = T),
+              min=min(Valor,na.rm = T),
+              sd=sd(Valor,na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round,decimales)) %>% 
+  mutate(across(everything(), ~ ifelse(.==" ", "-", .)))%>% data.frame()
+
+Resumen_hidroquimico_periodo_previo<- AG_SUP_Hidroquimica_pivot%>%
+  mutate(Parámetros=gsub("_mg_l","",Parámetros)) %>% 
+  group_by(Cuenca,Subcuenca,Parámetros) %>% 
+  filter(complete.cases(Valor),Fecha_Muestra<Fecha_comparativa) %>% 
+  mutate(Valor=Valor) %>% 
+  summarise(Unidad=unique(Unidad),
+            n=n(),
+    max=max(Valor,na.rm = T),
+              q95=quantile(Valor,.95,na.rm = T),
+              q75=quantile(Valor,.75,na.rm = T),
+              Prom.=mean(Valor,na.rm = T),
+              Mediana=median(Valor,na.rm = T),
+              q25=quantile(Valor,.25,na.rm = T),
+              q05=quantile(Valor,.05,na.rm = T),
+              min=min(Valor,na.rm = T),
+              sd=sd(Valor,na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round,decimales)) %>% 
+  mutate(across(everything(), ~ ifelse(.==" ", "-", .)))%>% data.frame()
+
+Resumen_hidroquimico_periodo_posterior<- AG_SUP_Hidroquimica_pivot%>%
+  mutate(Parámetros=gsub("_mg_l","",Parámetros)) %>% 
+  group_by(Cuenca,Subcuenca,Parámetros) %>% 
+  filter(complete.cases(Valor),Fecha_Muestra>Fecha_comparativa) %>% 
+  mutate(Valor=Valor) %>% 
+  summarise(Unidad=unique(Unidad),
+            n=n(),
+    max=max(Valor,na.rm = T),
+              q95=quantile(Valor,.95,na.rm = T),
+              q75=quantile(Valor,.75,na.rm = T),
+              Prom.=mean(Valor,na.rm = T),
+              Mediana=median(Valor,na.rm = T),
+              q25=quantile(Valor,.25,na.rm = T),
+              q05=quantile(Valor,.05,na.rm = T),
+              min=min(Valor,na.rm = T),
+              sd=sd(Valor,na.rm = T)) %>% 
+  mutate(across(where(is.numeric), round,decimales)) %>% 
+  mutate(across(everything(), ~ ifelse(.==" ", "-", .))) %>% data.frame()
+
+directorio_tabla= "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Resumen_Parámetros_Periodo_total.xlsx"
+write.xlsx2(Resumen_hidroquimico_totalidad_datos,directorio_tabla)
+
+directorio_tabla= "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Resumen_Parámetros_periodo_previo.xlsx"
+write.xlsx2(Resumen_hidroquimico_periodo_previo,directorio_tabla)
+
+directorio_tabla= "./03_Results/02_Analisis_Hidroquimico/01_Superficial/A_Tables/Resumen_Parámetros_Periodo_periodo_posterior.xlsx"
+write.xlsx2(Resumen_hidroquimico_periodo_posterior,directorio_tabla)
+
+knitr::kable(Resumen_hidroquimico_totalidad_datos,caption  ="Resumen de parámetros hidroquimicos por Cuencas y/o Subcuencas ",
+             booktabs = TRUE,align = "c")%>%
+  kable_styling(row_label_position = "c",
+                position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)%>%
+    #column_spec(1,width = "5cm")%>%
+  #kable_paper("striped", full_width = F)%>%
+  column_spec(1:3, width = "1cm") %>% 
+  column_spec(7:12, width = "1cm") %>% 
+  #column_spec(1, bold = T)%>%
+  kable_classic(full_width = F) %>%
+  
+  collapse_rows(columns = 1:3, valign = "middle")%>%
+  kableExtra::footnote(general = paste0("Directorio: ",directorio_tabla))
+```
+
+
+```{r echo=F,message=F,warning=F}

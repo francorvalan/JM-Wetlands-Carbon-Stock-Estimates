@@ -1,0 +1,37 @@
+Sitio;orden_de_muestreo;ID;sp_dominante;sp_acompañante;peso_total;peso_sin_bolsa;Latitud;Longitud;msnm
+El Balcon;1;BSS1;carex;calandrinia compacta;415;381;" 28°30'56.4""S";" 69°29'34.4""O";4091
+El Balcon;2;BS1;carex;Deschampsia eminens;446;412;" 28°30'56""S";" 69°29'33.7""O";4098
+El Balcon;3;BSC1;carex;d velutina;74;40;" 28°30'55.9""S";" 69°29'33.1""O";4103
+El Balcon;4;BSC2;Deschampsia eminens;;541;507;" 28°31'21.2""S";" 69°29'42.7""O";4113
+El Balcon;5;BSS2;Deschampsia eminens;oxicloe 2;987;953;" 28°31'20.8""S";" 69°29'43.6""O";4118
+El Balcon;6;BS2;Deschampsia eminens;gentiana prostata;266;232;" 28°31'21.4""S";" 69°29'45.1""O";4119
+El Balcon;28;BSS3;Deschampsia eminens;oxicloe ;132;98;" 28°31'27.7""S";" 69°32'17.5""O";4220
+El Balcon;29;BS3;Deschampsia eminens;;258;224;" 28°31'26.7""S";" 69°32'18.2""O";4218
+El Balcon;30;BSC3;Deschampsia eminens;calandrinia compacta, carex;552;518;" 28°31'26.5""S";" 69°32'20.5""O";4218
+Pirca de los Bueyes;7;PBSS1;Deschampsia eminens;hordeum, Festuca argentina;425;391;" 28°30'58""S";" 69°22'23.6""O";3961
+Pirca de los Bueyes;8;PBS1;Deschampsia eminens;hordeum, pucinellia frigida;342;308;" 28°30'56.1""S";" 69°22'22.1""O";3961
+Pirca de los Bueyes;9;PBSC1;Deschampsia eminens;carex, d curvula;252;218;" 28°30'53.2""S";" 69°22'19.1""O";3966
+Pirca de los Bueyes;10;PBSC2;Festuca argentina;;281;247;" 28°30'25.3""S";" 69°28'40.5""O";4062
+Pirca de los Bueyes;11;PBSS2;Festuca argentina;;297;263;" 28°30'24.1""S";" 69°28'39.4""O";4057
+Pirca de los Bueyes;12;PBS2;Festuca argentina;;355;321;" 28°30'24.5""S";" 69°28'38.5""O";4059
+Pirca de los Bueyes;13;PBSS3;carex;Deschampsia eminens, d curvula;100;66;" 28°30'28.2""S";" 69°29'30.2""O";4075
+Pirca de los Bueyes;14;PBS3;carex;d curvula y gentiana prostata;60;26;" 28°30'28.5""S";" 69°29'29.2""O";4070
+Pirca de los Bueyes;15;PBSC3;d curvula;carex;123;89;" 28°30'29.1""S";" 69°29'28.6""O";4074
+Quebrada Chica;16;QCSS1;oxicloe;d curvula;59;25;" 28°29'23.3""S";" 69°28'43.4""O";4139
+Quebrada Chica;17;QCSS2;oxicloe;d velutina;75;41;" 28°29'23.4""S";" 69°28'50.3""O";4141
+Quebrada Chica;18;QCS1;oxicloe;;159;125;" 28°29'23.5""S";" 69°28'48.7""O";4138
+Quebrada Chica;19;QCSC1;oxicloe;d curvula;122;88;" 28°29'24.4""S";" 69°28'42.4""O";4127
+Quebrada Chica;20;QCS2;oxicloe;;176;142;" 28°29'22.8""S";" 69°28'40.6""O";4122
+Quebrada Chica;21;QCSC2;Deschampsia eminens;;482;448;" 28°28'48.2""S";" 69°29'09.8""O";4208
+Quebrada Chica;22;QCS3;Deschampsia eminens;;79;45;" 28°28'48.2""S";" 69°29'10.3""O";4203
+Quebrada Chica;23;QCSS3;Deschampsia eminens;;665;631;" 28°28'48.1""S";" 69°29'10.5""O";4203
+Quebrada Chica;24;QCSC3;oxicloe;d curvula;497;463;" 28°29'23.4""S";" 69°28'39.9""O";4120
+MACHO MUERTO;25;MMSS1;Deschampsia eminens;Festuca argentina;376;342;" 28°24'39.3""S";" 69°17'08.1""O";3835
+MACHO MUERTO;27;MMS1;Deschampsia eminens;Festuca argentina;255;221;" 28°24'37.9""S";" 69°17'06.4""O";3840
+MACHO MUERTO;26;MMSC1;Deschampsia eminens;Festuca argentina, carex;170;136;" 28°24'40.9""S";" 69°17'09.1""O";3830
+MACHO MUERTO;31;MMSS2;Deschampsia eminens;d curvula;476;442;" 28°25'11.8""S";" 69°17'44.8""O";3849
+MACHO MUERTO;32;MMS2;Deschampsia eminens;Festuca argentina;369;335;" 28°25'10.1""S";" 69°17'45.7""O";3847
+MACHO MUERTO;33;MMSC2;Deschampsia eminens;d curvula;506;472;" 28°25'11.4""S";" 69°17'46.6""O";3850
+MACHO MUERTO;34;MMSS3;Deschampsia eminens;oxicloe;625;591;" 28°29'31""S";" 69°20'55.9""O";3918
+MACHO MUERTO;36;MMS3;Deschampsia eminens;puchinellia;220;186;" 28°29'58.5""S";" 69°21'11.6""O";3940
+MACHO MUERTO;35;MMSC3;Deschampsia eminens;oxicloe;136;102;" 28°29'50.2""S";" 69°21'06""O";3935

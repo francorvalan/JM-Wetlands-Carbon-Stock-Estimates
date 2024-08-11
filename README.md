@@ -27,7 +27,10 @@
   <img width="12" />
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/jupyter/jupyter-original.svg" height="40" alt="jupyter logo"  />
   <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/r/r-original.svg" height="40" alt="r logo"  />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/r/r-original.svg" height="40" alt="r logo"  />  
+  <p>   asd </p><img src="https://cdn.icon-icons.com/icons2/1508/PNG/512/googleearth-engine_104576.png" height="40" alt="gee logo"  />
+  <img width="12" />
+  
 </div>
 
 ###
