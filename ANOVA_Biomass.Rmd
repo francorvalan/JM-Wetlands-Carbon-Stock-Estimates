@@ -1,0 +1,488 @@
+---
+title: "Estudio de Biomasa en Vegas Altoandinas - Campaña de Enero, 2024"
+subtitle: "Análisis de la influencia de factores en la biomasa"
+date: Agosto, 2023.
+output:
+    pdf_document:
+        includes:
+             in_header: header.tex
+bibliography: references.bib
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/ieee.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# library(RODBC)
+library(sf)
+
+library(car)
+library(tmap)
+library(paletteer)
+library(summarytools)
+library(tidyr)
+library(dplyr)
+# library(tmaptools)
+library(kableExtra)
+library(ggplot2)
+# library(terra)
+# library(OpenStreetMap)
+# library(RColorBrewer)
+library(reactablefmtr)
+library(tidyverse)
+# library(formattable)
+# library(gapminder)
+tmap_mode("plot")
+library(xlsx)
+options(OutDec= ",") 
+decimales=10
+```
+
+```{r, echo=F}
+Biomasa <- read.xlsx2("./02_Data/01_Samples/Original_data/108052-01_ResultadosTerrenoBiomasa.xlsx",1) %>% mutate(Ps_Verano_g.m2 =as.numeric(Ps_Verano_g.m2),
+                      Ps_Otoño_g.m2 =as.numeric(Ps_Otoño_g.m2)                                                                       )
+Biomasa$SP_dominante <- Biomasa$Sp.Dom
+#Biomasa %>% group_by(Sp.Dom) %>% summarise(n=n())
+
+```
+
+## Introducción
+
+Se analizaron los datos de Biomasa (g/m²) para los datos muestreados en Enero de 2024. Los datos analizados presentan los siguientes criterios de agrupamiento:
+
+-   Condición Hídrica: `r Biomasa %>% select(CondHumedad) %>% unique() %>% pull()`
+-   Sp. Dominante: `r Biomasa %>% select(Sp.Dom) %>% unique() %>% pull()`
+-   Sistema de Vega: `r Biomasa %>% select(Sist.Vega) %>% unique() %>% pull()`
+
+## Software utilizado
+
+Los datos analizados fueron procesados en el lenguage de programación R version 4.4.0 @R, utilizando la librería *stats* @R para el análisis estadístico de los datos y las librerias *car* @car, *ggpubr @ggpubr* y *ggplot2 @ggplot2* para la representación gráfica de los resultados.
+
+\newpage
+
+# 1 Análisis del efecto "Especie Dominante".
+
+Se analizó el efecto de la especie en la determinación de la biomasa, para ello se realizó un análisis no parametrico de la diferencia de medias de biomasa entre las distintas especies. A continuación, en la Tabla 1, se presenta un resumen de los datos analizados:
+
+```{r echo=FALSE, message=F}
+resumen_datos <- Biomasa %>% group_by(Sp.Dom) %>% 
+  filter(complete.cases(min(Ps_Verano_g.m2))) %>% 
+  summarise(n=n(),
+            Mínimo=min(Ps_Verano_g.m2),
+            Medio=mean(Ps_Verano_g.m2),
+            Máximo=max(Ps_Verano_g.m2),
+            sd= sd(Ps_Verano_g.m2))
+
+knitr::kable(resumen_datos,
+             digits = 2,caption  ="Resumen estadístico de los valores de biomasa (g/m²) analizados",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)
+```
+
+## 1.1 Análisis de la normalidad de los datos:
+
+-   QQplot
+
+```{r, echo=F}
+res_sp <- aov(Ps_Verano_g.m2 ~ Sp.Dom,  data = Biomasa
+)
+# QQ-plot
+qqPlot(res_sp$residuals,
+       xlab= "Quantiles teóricos Normales",
+       ylab = "Quantiles Residuos",envelope=T,
+  id = FALSE # id = FALSE to remove point identification
+)
+mtext("Intervalo de confianza = 0,95", side = 1, line = 4, adj = 1, cex = 0.8)
+
+# ggplot(Biomasa, aes(x=Ps_Verano_g.m2, fill=Sp.Dom)) + 
+#   geom_density(alpha=.3)
+
+
+```
+
+-   Test de Shapiro-Wilk:
+
+Se realizó un análisis de normalidad aplicando el Test de Shapiro-Wilk @Welch1951 @Royston1982 @Royston1995 para cada grupo de datos, donde los resultados indican que no se puede rechazar la hipótesis nula, la cual afirma que los residuos siguen una distribución normal.
+
+```{r echo=F, eval=F}
+Biomasa %>% group_by(Sist.Vega) %>% 
+  filter(Sist.Vega=="El Balcón") %>% 
+  
+  select(Ps_Verano_g.m2) %>% pull()
+```
+
+A continuación, se presentan los resultados del análisis de Normalidad de datos:
+
+\newpage
+
+```{r eval=F, echo=F}
+Biomasa %>% group_by(Sist.Vega) %>% 
+               summarise(shap = shapiro.test(Ps_Verano_g.m2)$p.value)
+
+
+```
+
+```{r echo=F}
+#* $H_0$: los datos provienen de una distribución normal 
+#* $H_1$: os datos no provienen de una distribución normal
+#shapiro.test(res_sp$residuals)
+Shapiro_sp <- by(Biomasa$Ps_Verano_g.m2, Biomasa$SP_dominante, shapiro.test)
+Shapiro_sp_df <- data.frame("Sp.Dominante"=NA,
+                            "Shapiro-Wilk p-valor"=NA)
+for(i in 1:length(Shapiro_sp)){
+  Shapiro_sp_df[i,"Sp.Dominante"]=names(Shapiro_sp[i])
+  Shapiro_sp_df[i,"Shapiro.Wilk.p.valor"]=Shapiro_sp[[i]]$p.value
+  
+}
+
+Shapiro_sp_df <- Shapiro_sp_df %>% 
+  rename(`Shapiro-Wilk (p-valor)` = Shapiro.Wilk.p.valor ,
+         `Sp. Dominante` = Sp.Dominante )
+# knitr::kable(Shapiro_sp_df,
+#              digits = 2,caption  ="Resultado del análisis de normalidad con Shapiro-Wilk",
+#              booktabs = TRUE,align = "c") %>%
+#   kable_styling(row_label_position = "c",position = "center",font_size = 7,
+#                 repeat_header_continued  = F,repeat_header_method="append") 
+
+#cat("\\begin{table}[H]")
+knitr::kable(Shapiro_sp_df,
+             digits = 2, caption = "Resultado del análisis de normalidad con Shapiro-Wilk",
+             booktabs = TRUE, align = "c") %>%
+  kable_styling(row_label_position = "c", position = "center", font_size = 7,
+                repeat_header_continued=FALSE,latex_options = c("hold_position"))
+#cat("\\end{table}")
+
+```
+
+## 1.2 Análisis de la Igualdad de las varianzas:
+
+```{r echo=F, results=F, message=F,warning=F}
+# * $H_0$: las varianzas son iguales
+# * $H_1$: al menos una varianza es diferente
+
+leveneTest<- leveneTest(Ps_Verano_g.m2 ~ Sp.Dom,
+  data = Biomasa)
+
+```
+
+Se realizó el test de Levene @Fox2018-xw con el fin de analizar la varianza de los datos. El resultado permitió rechazar la rechazar la hipótesis nula, por lo que no podemos aceptar la hipótesis de que las varianzas son iguales entre especies (valor $p = 0,012$ \< $\alpha \text{ (0,05)}$).
+
+## 1.3 Análisis de la Influencia de la Especie dominante sobre la Biomasa
+
+Al cumplir con la normalidad de los datos pero no cumplir con el supuesto de homogeneidad en la varianza, se aplicó el test de Welch [@Welch1951]  con el fin de comparar los valores medios de biomasa por Especie.
+
+```{r echo=F}
+res_aov<- oneway.test(Ps_Verano_g.m2 ~ Sp.Dom,
+  data = Biomasa,
+  var.equal = FALSE # assuming unequal variances
+)
+```
+
+Dado que el $p-valor$ es menor que $\alpha \text{ (0,05)}$, se rechaza la hipótesis nula que afirma igualdad entre todas las medias de biomasa para las especies dominantes analizadas. Por lo tanto, podemos concluir que al menos una especie es diferente a las demás en términos de Biomasa ($p-valor = 3,13e-05$).
+
+### 1.4 Análisis Post-Hoc
+
+Con el fin de analizar la comparacion entre especies y considerando que los datos no presentan homogeneidad en las varianzas, se realizó un análisis de pares de medias utilizando el test de Wilcoxon-Mann-Whitney @Bauer1972 @Hollander1999-it .
+
+A continuación se presenta los resultados del análisis efectuado, observando:
+
+```{r  echo=FALSE, message=F, warning=FALSE}
+
+# Edit from here
+x <- which(names(Biomasa) == "Sp.Dom") # name of grouping variable
+y <- which(
+  names(Biomasa) == "Ps_Verano_g.m2" # names of variables to test
+)
+method1 <- "kruskal.test" # one of "anova" or "kruskal.test"
+method2 <- "wilcox.test" # one of "wilcox.test" or "t.test"
+
+my_comparisons <- combn(Biomasa$Sp.Dom %>% unique(), 2, simplify = FALSE)#list(c("Chinstrap", "Adelie"), c("Gentoo", "Adelie"), c("Gentoo", "Chinstrap")) # comparisons for post-hoc tests
+# Edit until here
+
+
+# Edit at your own risk
+library(ggpubr)
+for (i in y) {
+  for (j in x) {
+    plot <- ggboxplot(Biomasa,
+      x = colnames(Biomasa[j]), y = colnames(Biomasa[i]),
+      color = colnames(Biomasa[j]),
+      
+      legend = "none",
+      palette = "npg",
+      add = "jitter"
+    )
+    plot = 
+      plot + ylab("Peso Seco Verano (g/m²)")+
+       xlab("Especie dominante")+
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5,
+                                       size = 10))+
+        scale_color_manual(values=paletteer_d("PNWColors::Bay")[-3],
+                     name= "Sistema de Vega")+
+      stat_compare_means(comparisons = my_comparisons, method = method2, label = "p.format") # remove if p-value of ANOVA or Kruskal-Wallis test >= alpha
+    
+  }
+}
+plot
+
+# jpeg(file=paste0("./03_Results/01_Plots/Wilcox_test_","Biomasa_vs_Sp_dominante_Verano",".jpeg"),
+#        quality = 100,res=150,width=1000, height=700)
+#   plot
+# dev.off()
+
+```
+
+\newpage
+
+# 2 Análisis del efecto "Condición Hídrica"
+
+Se analizó el efecto de la Condición Hídrica en en la determinación de la biomasa, para ello se realizó un análisis de la varianza de la biomasa entre las distintas condiciones de humedad. A continuación, en la Tabla 3, se presenta un resumen de los datos analizados:
+
+```{r echo=FALSE, message=F}
+resumen_datos <- Biomasa %>% group_by(CondHumedad) %>% 
+  filter(complete.cases(min(Ps_Verano_g.m2))) %>% 
+  summarise(n=n(),
+            Mínimo=min(Ps_Verano_g.m2),
+            Medio=mean(Ps_Verano_g.m2),
+            Máximo=max(Ps_Verano_g.m2),
+            sd= sd(Ps_Verano_g.m2))
+
+
+
+knitr::kable(resumen_datos,
+             digits = 2,caption  ="Resumen estadistico de los datos analizados",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)
+```
+
+## 2.1 Análisis de la normalidad de los datos:
+
+-   QQplot
+
+```{r, echo=F}
+res_sp <- aov(Ps_Verano_g.m2 ~ CondHumedad,  data = Biomasa
+)
+# QQ-plot
+qqPlot(res_sp$residuals,
+       xlab= "Quantiles teóricos Normales",
+       ylab = "Quantiles Residuos",envelope=T,
+  id = FALSE # id = FALSE to remove point identification
+)
+mtext("Intervalo de confianza = 0,95", side = 1, line = 4, adj = 1, cex = 0.8)
+# ggplot(Biomasa, aes(x=Ps_Verano_g.m2, fill=Sp.Dom)) + 
+#   geom_density(alpha=.3)
+
+
+```
+
+-   Test de Shapiro-Wilk:
+
+Se realizó un análisis de normalidad aplicando el Test de Shapiro-Wilk para cada grupo de datos. Los resultados indican que no se puede rechazar la hipótesis nula, la cual afirma que los residuos presentan una distribución normal.
+
+A continuación, se presentan los resultados del análisis de Normalidad de datos: \newpage
+
+```{r echo=F}
+#* $H_0$: los datos provienen de una distribución normal 
+#* $H_1$: os datos no provienen de una distribución normal
+#shapiro.test(res_sp$residuals)
+Shapiro_humedad <- by(Biomasa$Ps_Verano_g.m2, Biomasa$CondHumedad, shapiro.test)
+Shapiro_humedad_df <- data.frame("Humedad"=NA,
+                            "Shapiro-Wilk p-valor"=NA)
+for(i in 1:length(Shapiro_humedad)){
+  Shapiro_humedad_df[i,"Humedad"]=names(Shapiro_humedad[i])
+  Shapiro_humedad_df[i,"Shapiro.Wilk.p.valor"]=Shapiro_humedad[[i]]$p.value
+  
+}
+Shapiro_humedad_df<- Shapiro_humedad_df %>% 
+  rename(`Shapiro-Wilk (p-valor)` = Shapiro.Wilk.p.valor)
+
+knitr::kable(Shapiro_humedad_df,
+             digits = 2,caption  ="Resultado del análisis de normalidad con Shapiro-Wilk",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE) # Ajusta el tamaño de la fuente
+  #column_spec(1, width = "1cm") %>%  # Ancho de la primera columna
+  #column_spec(c(2,3,4), width = "1.5cm")%>%asd
+```
+
+Dado el $p-value \text{ = 0,2345}$ \> $\alpha \text{ (0.05)}$, no rechazamos la hipotesis nula la cual afirma que los residuos siguen una distribucion normal.
+
+```{r eval=F,include=F}
+# -   Kolmogorov-Smirnov test
+# Utilizar el test de Kruskal-Wallis en caso de no cumplir.
+#kruskal.test(variable ~ group, data = dat)
+```
+
+## 2.2 Análisis de la Igualdad de las varianzas:
+
+```{r echo=F, results=F, message=F,warning=F}
+# * $H_0$: las varianzas son iguales
+# * $H_1$: al menos una varianza es diferente
+
+leveneTest<- leveneTest(Ps_Verano_g.m2 ~ CondHumedad,
+  data = Biomasa)
+leveneTest
+
+```
+
+Se realizó el test de Levene con el fin de analizar la varianza de los datos. El resultado no permitió rechazar la rechazar la hipótesis nula, la cual afirma homogeneidad en las varianzas entre distintos contenidos de humedad (valor $p = 0,114$ \< $\alpha \text{ (0,05)}$).
+
+## 2.3 Análisis de la Influencia de la Condición Hídrica dominante sobre la Biomasa
+
+Al cumplir con la normalidad de los datos y el supuesto de homogeneidad en la varianza, se realizó un Análsis de la Varianza ANOVA, con el fin de analizar los valores medios de biomasa para distintas condiciones de humedad.
+
+```{r echo=F, warning=FALSE, message=F}
+res_aov<- oneway.test(Ps_Verano_g.m2  ~ CondHumedad,
+  data = Biomasa,
+  var.equal = T # assuming unequal variances
+)
+
+```
+
+El resultado presentó un $p-valor = 0,6551$, permitiendo concluir que la humedad no presenta un efecto significativo sobre la biomasa.
+
+```{r echo=F, warning=FALSE, message=F}
+plot <- Biomasa %>% 
+  ggplot(aes(x=CondHumedad,y=Ps_Verano_g.m2))+
+  geom_boxplot(aes(colour = CondHumedad),
+      add = "jitter")+
+  ylab("Peso Seco Verano (g/m²)")+
+  xlab(NULL)+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5,
+                                       size = 10))+
+   theme_minimal()+
+  scale_color_manual(values=paletteer_d("PNWColors::Bay")[-3],
+                     name="Condición Hídrica")
+
+
+# jpeg(file=paste0("./03_Results/01_Plots/Biomasa_Enero_por_Contenido_Humedad",".jpeg"),
+#        quality = 100,res=150,width=1000, height=500)
+#   plot
+# dev.off()
+
+plot
+```
+
+\newpage
+
+# 3 Análisis del efecto "Sistema de Vega"
+
+Se analizó el efecto de la localización geográfica, acorde a cada Sistema de Vega en la determinación de la biomasa. Para ello se realizó un análisis no paramétrico de la diferencia de medianas de biomasa entre las distintas especies. A continuación, en la Tabla 5, se presenta un resumen de los datos analizados:
+
+```{r echo=FALSE, message=F}
+resumen_datos <- Biomasa %>% group_by(Sist.Vega) %>% 
+  filter(complete.cases(min(Ps_Verano_g.m2))) %>% 
+  summarise(n=n(),
+            Mínimo=min(Ps_Verano_g.m2),
+            Medio=mean(Ps_Verano_g.m2),
+            Máximo=max(Ps_Verano_g.m2),
+            sd= sd(Ps_Verano_g.m2))
+
+knitr::kable(resumen_datos,
+             digits = 2,caption  ="Resumen estadístico de los valores de biomasa (g/m²) analizados",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE)
+```
+
+## 3.1 Análisis de la normalidad de los datos:
+
+-   QQplot
+
+```{r echo=F, message=FALSE, message=F}
+res_sp <- aov(Ps_Verano_g.m2 ~ Sist.Vega,  data = Biomasa
+)
+# QQ-plot
+qqPlot(res_sp$residuals,
+       xlab= "Quantiles teóricos Normales",
+       ylab = "Quantiles Residuos",envelope=T,
+  id = FALSE # id = FALSE to remove point identification
+)
+mtext("Intervalo de confianza = 0,95", side = 1, line = 4, adj = 1, cex = 0.8)
+# ggplot(Biomasa, aes(x=Ps_Verano_g.m2, fill=Sp.Dom)) + 
+#   geom_density(alpha=.3)
+
+```
+
+-   Test de Shapiro-Wilk:
+
+Se realizó un analsis de normalidad aplicando el Test de Shapiro-Wilk para cada grupo de datos, donde los resultados indican que el Sistema de Vega "Quebrada Chica" no presenta una distribución normal de los datos, con un nivel de significancia estadistica $\alpha=0.05$.
+
+A continuación, se presentan los resultados del análisis de Normalidad de datos: \newpage
+
+```{r echo=F}
+#* $H_0$: los datos provienen de una distribución normal 
+#* $H_1$: os datos no provienen de una distribución normal
+#shapiro.test(res_sp$residuals)
+Shapiro_Sistema <- by(Biomasa$Ps_Verano_g.m2, Biomasa$Sist.Vega, shapiro.test)
+Shapiro_Sistema_df <- data.frame("Sistema.de.Vega"=NA,
+                            "Shapiro-Wilk p-valor"=NA)
+for(i in 1:length(Shapiro_sp)){
+  Shapiro_Sistema_df[i,"Sistema.de.Vega"]=names(Shapiro_sp[i])
+  Shapiro_Sistema_df[i,"Shapiro.Wilk.p.valor"]=Shapiro_sp[[i]]$p.value
+  
+}
+
+Shapiro_Sistema_df<- Shapiro_Sistema_df %>% 
+  rename(`Shapiro-Wilk (p-valor)` = Shapiro.Wilk.p.valor,
+         `Sistema de Vega`=Sistema.de.Vega)
+
+
+knitr::kable(Shapiro_Sistema_df,
+             digits = 2,caption  ="Resultado del análisis de normalidad con Shapiro-Wilk",
+             booktabs = TRUE,align = "c") %>%
+  kable_styling(row_label_position = "c",position = "center",font_size = 7,
+                repeat_header_continued  = TRUE) # Ajusta el tamaño de la fuente
+
+```
+
+## 3.2 Análisis de la Igualdad de las varianzas:
+
+```{r echo=F, results=F, message=F,warning=F}
+# * $H_0$: las varianzas son iguales
+# * $H_1$: al menos una varianza es diferente
+
+leveneTest<- leveneTest(Ps_Verano_g.m2 ~ Sist.Vega,
+  data = Biomasa)
+
+```
+
+Se realizó el test de Levene con el fin de analizar la varianza de los datos. El resultado no permite rechazar la hipótesis nula, la cual afirma que las varianzas son iguales para cada sistema de vega analizado (valor $p = 0,5307$ \< $\alpha \text{ (0,05)}$).
+
+## 3.3 Análisis de la Influencia del sitio (Sistema de Vega) sobre la Biomasa.
+
+Al no cumplir con el supuesto de la normalidad de los datos, se realizó un test de Kruskal-Wallis para evaluar si hay diferencias significativas en la biomasa entre los diferentes Sistemas de Vega analizados. El estadístico de Kruskal-Wallis obtenido fue de 5,5145 con 3 grados de libertad y un $p-valor = 0,1378$.
+
+Dado que el p-valor (0,1378) presentó un valor mayor que el nivel de significancia $\alpha=0,05$, se concluye que no se observan diferencias significativas en la mediana de la biomasa entre los diferentes sistemas de Vega analizados.
+
+```{r echo=F,message=FALSE, message=F}
+res_aov<- kruskal.test(Ps_Verano_g.m2 ~ Sist.Vega, data = Biomasa)
+```
+
+```{r echo=F, warning=FALSE, message=F}
+plot <- Biomasa %>% 
+  ggplot(aes(x=Sist.Vega,y=Ps_Verano_g.m2))+
+  geom_boxplot(aes(colour = Sist.Vega),
+      add = "jitter")+
+  ylab("Peso Seco Verano (g/m²)")+
+  xlab(NULL)+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5,
+                                       size = 10))+
+   theme_minimal()+
+  scale_color_manual(values=paletteer_d("PNWColors::Bay")[-3],
+                     name= "Sistema de Vega")+
+          theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5,
+                                       size = 10))
+
+# jpeg(file=paste0("./03_Results/01_Plots/Biomasa_Enero_por_Sistema_Vegas",".jpeg"),
+#        quality = 100,res=150,width=1000, height=500)
+#   plot
+# dev.off()
+plot
+
+```
+
+\newpage
+
+# Bibliografía
