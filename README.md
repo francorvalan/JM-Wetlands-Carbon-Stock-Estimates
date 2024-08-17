@@ -18,7 +18,7 @@
 ![workflow]("./03_Results/01_Plots/Model_process.png")
 
 <p align="center">
-  <img src="./03_Results/01_Plots/Model_process.png" width="350" title="hover text">
+  <img src="./03_Results/01_Plots/Model_process.svg" width="350" title="hover text">
 </p>
 
 <p align="left">✨ Creating bugs since ...<br>📚 I'm currently learning ...<br>🎯 Goals: ...<br>🎲 Fun fact: ...</p>
