@@ -18,7 +18,7 @@
 ![workflow]("./03_Results/01_Plots/Model_process.png")
 
 <p align="center">
-  <img src="./02_Data/www/01_Plots/Model_process.svg" width="350" title="hover text">
+  <img src="./02_Data/www/Model_process.png" width="350" title="hover text">
 </p>
 
 ###
