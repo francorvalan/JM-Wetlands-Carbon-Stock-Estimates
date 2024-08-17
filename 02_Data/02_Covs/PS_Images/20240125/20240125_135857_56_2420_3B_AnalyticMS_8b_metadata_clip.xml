@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ps:EarthObservation xsi:schemaLocation="http://schemas.planet.com/ps/v1/planet_product_metadata_geocorrected_level http://schemas.planet.com/ps/v1/planet_product_metadata_geocorrected_level.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:opt="http://earth.esa.int/opt" xmlns:gml="http://www.opengis.net/gml" xmlns:eop="http://earth.esa.int/eop" version="1.2.1" planet_standard_product_version="1.0" xmlns:ps="http://schemas.planet.com/ps/v1/planet_product_metadata_geocorrected_level">
+  <gml:metaDataProperty>
+    <ps:EarthObservationMetaData>
+      <eop:identifier>20240125_135857_56_2420_3B_AnalyticMS_8b</eop:identifier>
+      <eop:acquisitionType>NOMINAL</eop:acquisitionType>
+      <eop:productType>L3B</eop:productType>
+      <eop:status>ARCHIVED</eop:status>
+      <eop:downlinkedTo>
+        <eop:DownlinkInformation>
+          <eop:acquisitionStation codeSpace="urn:eop:PS:stationLocation">Planet Ground Station Network</eop:acquisitionStation>
+          <eop:acquisitionDate>2024-01-25T13:58:57+00:00</eop:acquisitionDate>
+        </eop:DownlinkInformation>
+      </eop:downlinkedTo>
+      <eop:archivedIn>
+        <eop:ArchivingInformation>
+          <eop:archivingCenter codeSpace="urn:eop:PS:stationLocation">Planet Archive Center</eop:archivingCenter>
+          <eop:archivingDate>2024-01-25T13:58:57+00:00</eop:archivingDate>
+          <eop:archivingIdentifier codeSpace="urn:eop:PS:dmsCatalogueId">7064082</eop:archivingIdentifier>
+        </eop:ArchivingInformation>
+      </eop:archivedIn>
+      <eop:processing>
+        <eop:ProcessingInformation>
+          <eop:processorName>CMO Processor</eop:processorName>
+          <eop:processorVersion>4.1.4</eop:processorVersion>
+          <eop:nativeProductFormat>GeoTIFF</eop:nativeProductFormat>
+        </eop:ProcessingInformation>
+      </eop:processing>
+      <ps:license>
+        <ps:licenseType>20160101 - Inc - Single User</ps:licenseType>
+        <ps:resourceLink xlink:title="PL EULA" xlink:href="https://assets.planet.com/docs/20160101_Inc_SingleUser.txt" />
+      </ps:license>
+      <ps:versionIsd>1.0</ps:versionIsd>
+      <ps:pixelFormat>16U</ps:pixelFormat>
+    </ps:EarthObservationMetaData>
+  </gml:metaDataProperty>
+  <gml:validTime>
+    <gml:TimePeriod>
+      <gml:beginPosition>2024-01-25T13:58:57+00:00</gml:beginPosition>
+      <gml:endPosition>2024-01-25T13:58:57+00:00</gml:endPosition>
+    </gml:TimePeriod>
+  </gml:validTime>
+  <gml:using>
+    <eop:EarthObservationEquipment>
+      <eop:platform>
+        <eop:Platform>
+          <eop:shortName>PlanetScope</eop:shortName>
+          <eop:serialIdentifier>2420</eop:serialIdentifier>
+          <eop:orbitType>LEO-SSO</eop:orbitType>
+        </eop:Platform>
+      </eop:platform>
+      <eop:instrument>
+        <eop:Instrument>
+          <eop:shortName>PSB.SD</eop:shortName>
+        </eop:Instrument>
+      </eop:instrument>
+      <eop:sensor>
+        <ps:Sensor>
+          <eop:sensorType>OPTICAL</eop:sensorType>
+          <eop:resolution uom="m">3.0000</eop:resolution>
+          <ps:scanType>FRAME</ps:scanType>
+        </ps:Sensor>
+      </eop:sensor>
+      <eop:acquisitionParameters>
+        <ps:Acquisition>
+          <eop:orbitDirection>DESCENDING</eop:orbitDirection>
+          <eop:incidenceAngle uom="deg">3.774321e+00</eop:incidenceAngle>
+          <opt:illuminationAzimuthAngle uom="deg">8.614104e+01</opt:illuminationAzimuthAngle>
+          <opt:illuminationElevationAngle uom="deg">4.980615e+01</opt:illuminationElevationAngle>
+          <ps:azimuthAngle uom="deg">1.143082e+01</ps:azimuthAngle>
+          <ps:spaceCraftViewAngle uom="deg">3.486139e+00</ps:spaceCraftViewAngle>
+          <ps:acquisitionDateTime>2024-01-25T13:58:57+00:00</ps:acquisitionDateTime>
+        </ps:Acquisition>
+      </eop:acquisitionParameters>
+    </eop:EarthObservationEquipment>
+  </gml:using>
+  <gml:target>
+    <ps:Footprint>
+      <gml:multiExtentOf>
+        <gml:MultiSurface srsName="EPSG:4326">
+          <gml:surfaceMembers>
+            <gml:MultiPolygon>
+              <gml:polygonMember>
+                <gml:Polygon>
+                  <gml:outerBoundaryIs>
+                    <gml:LinearRing>
+                      <gml:coordinates>-69.316198442472,-28.4067701414473 -69.2749954739492,-28.4141029967744 -69.2837561395288,-28.4210517210121 -69.2973140399579,-28.4354319410817 -69.300405050236,-28.4452749548735 -69.3000817845354,-28.4608630695073 -69.3044374100484,-28.4725004465872 -69.3199630784035,-28.4980320683642 -69.3312465769016,-28.5111121056704 -69.3371556729732,-28.5217741992285 -69.3511109219446,-28.5261372793395 -69.3719975712468,-28.5258881214651 -69.3776816312981,-28.5413527875072 -69.3851009878056,-28.5507512803405 -69.3918598277458,-28.563234161875 -69.3917837437196,-28.5640703867709 -69.397264243786,-28.563077442686 -69.3975433083761,-28.5611784440336 -69.3905203263752,-28.5482089688893 -69.3832432120773,-28.5390523329899 -69.3804483111719,-28.5211202815903 -69.3835998760633,-28.5157307315196 -69.3933583731764,-28.5038687317927 -69.4003055846806,-28.5037199260739 -69.4094964446301,-28.5022343695023 -69.4264115961523,-28.5054682474523 -69.4406503839993,-28.5040065506953 -69.4509657229851,-28.5057602937845 -69.469305531812,-28.5085592396811 -69.4776874251254,-28.512350710821 -69.4849095648351,-28.5194566408164 -69.4909545001264,-28.5283426091664 -69.5069679169833,-28.5331173442451 -69.513313288298,-28.5331383167244 -69.499848500123,-28.4750399002364 -69.4983345192658,-28.4720424651166 -69.4970713885639,-28.4696753380747 -69.4940825733977,-28.4595002066373 -69.4901683426957,-28.4580754779208 -69.4872385655063,-28.4582778534625 -69.4859461387137,-28.460488770731 -69.4845890583056,-28.4738625601658 -69.4811217135924,-28.4790039398188 -69.468898375873,-28.4881650889878 -69.4566978122372,-28.4912504429629 -69.4469630827771,-28.4903799648196 -69.4302362665327,-28.4953236335603 -69.4216079954809,-28.4942014646568 -69.409237830702,-28.4931267708713 -69.3977086965292,-28.4946240830274 -69.386758017853,-28.497900399693 -69.3787418154887,-28.4994697790103 -69.3674851336887,-28.4943206660475 -69.3586632677315,-28.4864303082319 -69.3466303755486,-28.4787094590749 -69.3410699406395,-28.4713851330801 -69.3329095417771,-28.4603318342615 -69.3281346906083,-28.4499823554871 -69.32516010176,-28.4391608866501 -69.3292818533396,-28.4375167116461 -69.3608582439001,-28.4484075886884 -69.378243926606,-28.4540200529169 -69.4130476280988,-28.4550473613798 -69.4238314602658,-28.4540775426843 -69.4323344286637,-28.4506139496195 -69.4532367288969,-28.4389225147569 -69.4582307188821,-28.4427482167922 -69.46261931748,-28.4492441396337 -69.4654588173119,-28.4550483766125 -69.4733886877568,-28.4581166924879 -69.4764820375131,-28.4559178009434 -69.4844352665839,-28.4512552933697 -69.4936009454533,-28.4492858492761 -69.4938812274212,-28.449292068914 -69.4911139652335,-28.4373517733054 -69.4809942849579,-28.4337127047162 -69.4718610491902,-28.4267062023006 -69.4722314810503,-28.4231910575506 -69.4830401896629,-28.418414901897 -69.4866350361944,-28.4180259078445 -69.4809852369446,-28.3936479239041 -69.4755226722077,-28.3968604673709 -69.4670848374616,-28.4022855415709 -69.4595396453573,-28.4073473618447 -69.4553161642204,-28.409160173121 -69.452524593206,-28.4120652667077 -69.449249227721,-28.4176698395372 -69.4478246082326,-28.4296353862408 -69.4309342615218,-28.4452990614951 -69.4157450509113,-28.4424664481494 -69.3989472740684,-28.4429144462855 -69.3851951281453,-28.4412586667707 -69.3680888902058,-28.4364932858692 -69.3488666550117,-28.4292233028313 -69.3257205533324,-28.4147494467609 -69.316198442472,-28.4067701414473</gml:coordinates>
+                    </gml:LinearRing>
+                  </gml:outerBoundaryIs>
+                </gml:Polygon>
+              </gml:polygonMember>
+              <gml:polygonMember>
+                <gml:Polygon>
+                  <gml:outerBoundaryIs>
+                    <gml:LinearRing>
+                      <gml:coordinates>-69.3659761341136,-28.5687461486529 -69.3805979919726,-28.5660969949085 -69.3800687874977,-28.5615314524416 -69.3772461555195,-28.5521596964435 -69.3717391878935,-28.5494203144538 -69.3672270357193,-28.5464084894806 -69.3602270914808,-28.5464988694786 -69.3569281425645,-28.5522476490215 -69.3609561065925,-28.5569477184245 -69.3656818216745,-28.5617373301233 -69.3659761341136,-28.5687461486529</gml:coordinates>
+                    </gml:LinearRing>
+                  </gml:outerBoundaryIs>
+                </gml:Polygon>
+              </gml:polygonMember>
+            </gml:MultiPolygon>
+          </gml:surfaceMembers>
+        </gml:MultiSurface>
+      </gml:multiExtentOf>
+      <gml:centerOf>
+        <gml:Point srsName="EPSG:4326">
+          <gml:pos>-69.3401006558 -28.4879829856</gml:pos>
+        </gml:Point>
+      </gml:centerOf>
+      <ps:geographicLocation>
+        <ps:topLeft>
+          <ps:latitude>-28.3780850854</ps:latitude>
+          <ps:longitude>-69.5152958499</ps:longitude>
+        </ps:topLeft>
+        <ps:topRight>
+          <ps:latitude>-28.3780850854</ps:latitude>
+          <ps:longitude>-69.1654989393</ps:longitude>
+        </ps:topRight>
+        <ps:bottomRight>
+          <ps:latitude>-28.5983089482</ps:latitude>
+          <ps:longitude>-69.1654989393</ps:longitude>
+        </ps:bottomRight>
+        <ps:bottomLeft>
+          <ps:latitude>-28.5983089482</ps:latitude>
+          <ps:longitude>-69.5152958499</ps:longitude>
+        </ps:bottomLeft>
+      </ps:geographicLocation>
+    </ps:Footprint>
+  </gml:target>
+  <gml:resultOf>
+    <ps:EarthObservationResult>
+      <eop:product>
+        <ps:ProductInformation>
+          <eop:fileName>/execdir/20240125_135857_56_2420_3B_AnalyticMS_8b_clip.tif</eop:fileName>
+          <ps:productFormat>GeoTIFF</ps:productFormat>
+          <ps:spatialReferenceSystem>
+            <ps:epsgCode>32719</ps:epsgCode>
+            <ps:geodeticDatum>WGS_1984</ps:geodeticDatum>
+            <ps:projection>WGS 84 / UTM zone 19S</ps:projection>
+            <ps:projectionZone>119</ps:projectionZone>
+          </ps:spatialReferenceSystem>
+          <ps:resamplingKernel>CC</ps:resamplingKernel>
+          <ps:numRows>8173</ps:numRows>
+          <ps:numColumns>8600</ps:numColumns>
+          <ps:numBands>8</ps:numBands>
+          <ps:rowGsd>3.0</ps:rowGsd>
+          <ps:columnGsd>3.0</ps:columnGsd>
+          <ps:radiometricCorrectionApplied>true</ps:radiometricCorrectionApplied>
+          <ps:geoCorrectionLevel>Precision Geocorrection</ps:geoCorrectionLevel>
+          <ps:elevationCorrectionApplied>FineDEM</ps:elevationCorrectionApplied>
+          <ps:atmosphericCorrectionApplied>false</ps:atmosphericCorrectionApplied>
+        </ps:ProductInformation>
+      </eop:product>
+      <eop:mask>
+        <eop:MaskInformation>
+          <eop:type>UNUSABLE DATA</eop:type>
+          <eop:format>RASTER</eop:format>
+          <eop:referenceSystemIdentifier codeSpace="EPSG">32719</eop:referenceSystemIdentifier>
+          <eop:fileName>NA</eop:fileName>
+        </eop:MaskInformation>
+      </eop:mask>
+      <opt:cloudCoverPercentage uom="percentage">0.0</opt:cloudCoverPercentage>
+      <opt:cloudCoverPercentageQuotationMode>AUTOMATIC</opt:cloudCoverPercentageQuotationMode>
+      <ps:unusableDataPercentage uom="percentage">0.0</ps:unusableDataPercentage>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>1</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>2.0964176502042973e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>2</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>2.0246384006715073e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>3</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>2.1638708720461195e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>4</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>2.1958775974323038e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>5</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>2.3600528583838745e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>6</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>2.6430418541339745e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>7</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>2.825575201691699e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+      <ps:bandSpecificMetadata>
+        <ps:bandNumber>8</ps:bandNumber>
+        <!-- Multiply by radiometricScaleFactor to convert DNs to TOA Radiance (watts per steradian per square metre -->
+        <ps:radiometricScaleFactor>0.01</ps:radiometricScaleFactor>
+        <!-- Multiply by reflectanceCoefficient to convert DNs to TOA Reflectance -->
+        <ps:reflectanceCoefficient>4.183270692986013e-05</ps:reflectanceCoefficient>
+      </ps:bandSpecificMetadata>
+    </ps:EarthObservationResult>
+  </gml:resultOf>
+</ps:EarthObservation>

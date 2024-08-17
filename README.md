@@ -12,7 +12,10 @@
 
 <p align="left">This repository includes the codes and workflow for the Carbon Stocks estimations in high weatlands.</p>
 
-###
+# Modeling Workflow 
+
+<p align="center"> <img src="./03_Results/01_Plots/Model_process.png" height="800" alt="python logo"  /> </p> 
+
 
 <p align="left">✨ Creating bugs since ...<br>📚 I'm currently learning ...<br>🎯 Goals: ...<br>🎲 Fun fact: ...</p>
 
