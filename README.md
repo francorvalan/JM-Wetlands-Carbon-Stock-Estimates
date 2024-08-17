@@ -14,8 +14,12 @@
 
 # Modeling Workflow 
 
-<p align="center"> <img src="./03_Results/01_Plots/Model_process.png" height="800" alt="python logo"  /> </p> 
+<p align="center"> <img src="./03_Results/01_Plots/Model_process.png" height="800" /> </p> 
+![workflow]("./03_Results/01_Plots/Model_process.png")
 
+<p align="center">
+  <img src="./03_Results/01_Plots/Model_process.png" width="350" title="hover text">
+</p>
 
 <p align="left">✨ Creating bugs since ...<br>📚 I'm currently learning ...<br>🎯 Goals: ...<br>🎲 Fun fact: ...</p>
 
