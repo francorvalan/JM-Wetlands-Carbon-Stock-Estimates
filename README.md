@@ -2,9 +2,10 @@
 
 ###
 
-<div align="center">
-  <img height="200" src=""  />
-</div>
+<p align="center">
+  <img src="./02_Data/www/IMG_0010.JPG" width="800" title="workflow">
+</p>
+
 
 ###
 
@@ -14,11 +15,8 @@
 
 # Modeling Workflow 
 
-<p align="center"> <img src="./03_Results/01_Plots/Model_process.png" height="800" /> </p> 
-![workflow]("./03_Results/01_Plots/Model_process.png")
-
 <p align="center">
-  <img src="./02_Data/www/Model_process.png" width="350" title="hover text">
+  <img src="./02_Data/www/Model_process.png" width="350" title="workflow">
 </p>
 
 ###
